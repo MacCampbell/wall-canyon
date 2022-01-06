@@ -1,0 +1,29 @@
+---
+title: "100-demultiplex"
+author: "Mac Campbell"
+date: "1/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+## Demultiplexing
+Our data type is paired-end RADseq. Demultiplexing....
+
+```{r}
+b<-read_csv("meta/barcodes.csv")
+```
+
+Expected plate barcodes
+
+```{r}
+b %>% select(`Library Index`) %>% group_by(`Library Index`) %>% summarize(Count=n())
+```
+
