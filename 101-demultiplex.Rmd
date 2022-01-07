@@ -48,15 +48,26 @@ What do we have?
 11G	HS2253_R3_ATGTCA.fastq    
 9.5G	HS2253_R1_ATGTCA.fastq    
 
+Looks to be PstI data
+
 ln to ../split    /home/maccamp/wall-canyon/data/split    
 Then:    
 ```{sh, eval=FALSE}
 ls *R1*.fastq > listR1
 ls *R3*.fastq > listR3
 ls *R1*fastq | sed "s/HS2253_R1_//g" | sed "s/\.fastq//g" | paste listR1 listR3 - > flist
-srun -t 12:00:00 -p high run_wellsplit.sh flist
-
+srun -t 12:00:00 -p high run_wellsplit_PstI.sh flist
 ```
+
+
+To rename,
+create names like GTCCGC_RA_GGAAACATCGTGCAG.fastq
+
+```{r}
+b %>% mutate(Filename1=paste0(`Library Index`, "_RA_GG",`Sample Index`, "TGCAG.fastq"))
+```
+
+
 
 
 
