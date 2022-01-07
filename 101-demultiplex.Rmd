@@ -61,10 +61,22 @@ srun -t 12:00:00 -p high run_wellsplit_PstI.sh flist
 
 
 To rename,
-create names like GTCCGC_RA_GGAAACATCGTGCAG.fastq
+create names 
+AGTCAA_RA_GGAAACATCGTGCAG.fastq
+AGTCAA_RA_GGAACAACCATGCAG.fastq
+AGTCAA_RB_GGAGTACAAGTGCAG.fastq
+15 bp long:
 
 ```{r}
-b %>% mutate(Filename1=paste0(`Library Index`, "_RA_GG",`Sample Index`, "TGCAG.fastq"))
+b2<- b %>% mutate(Filename1=paste0(`Library Index`, "_RA_GG",`Sample Index`, "TGCAG.fastq")) %>% 
+      mutate(Filename2=paste0(`Library Index`, "_RB_GG",`Sample Index`, "TGCAG.fastq")) %>%
+      mutate(NewFile1=paste0(`Sample ID`, "_RA.fastq")) %>%
+      mutate(NewFile2=paste0(`Sample ID`, "_RB.fastq")) %>%
+      mutate(Command1 = paste0("mv data/split/",Filename1, " data/renamed/", `NewFile1`)) %>%
+      mutate(Command2 = paste0("mv data/split/",Filename2, " data/renamed/", `NewFile2`))
+
+commands<-c(b2$Command1, b2$Command2) %>% as_data_frame()
+write_tsv(commands, file="102-rename.sh",col_names = FALSE)
 ```
 
 
