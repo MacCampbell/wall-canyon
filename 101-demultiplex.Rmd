@@ -107,7 +107,11 @@ counts$Counts<-gsub(" + 0 mapped (100.00% : N/A)", "", counts$Counts, fixed = TR
 comb<-bind_cols(files, counts)
 ```
 
-Considering dropping the 0x2	PROPER_PAIR	flag in alignment
+Considering dropping the 0x2	PROPER_PAIR	flag in alignment, but then can't remove pcr duplicates, see 104-do-align-mapped.sh
+
+
+
+
 
 
 

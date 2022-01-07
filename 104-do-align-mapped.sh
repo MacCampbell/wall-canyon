@@ -26,8 +26,8 @@ do
        echo "#!/bin/bash -l
        bwa mem $ref ${c1}.fastq ${c2}.fastq | samtools view -Sb | samtools sort - -o ${c1}.sort.bam
        samtools index ${c1}.sort.bam
-       samtools view -F 0x04 -b ${c1}.sort.bam | samtools rmdup - ${c1}.sort.flt.bam
-       samtools index ${c1}.sort.flt.bam" > ${c1}.sh
+       samtools view -F 0x04 -b ${c1}.sort.bam -o ${c1}.sort.mapped.bam
+       samtools index ${c1}.sort.mapped.bam" > ${c1}.sh
        sbatch -p med -t 4-10:00:00 --mem=8G ${c1}.sh
 
        x=$(( $x + 1 ))
