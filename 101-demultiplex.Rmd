@@ -95,6 +95,7 @@ paste forward reverse  > sequences.txt
 Get counts
 ```{sh, eval=FALSE}
 ls | grep sort.flt.bam | grep -v bai | while read line; do samtools flagstat $line | grep mapped | head -n 1 >> counts.txt; done;
+ls | grep sort.bam | grep -v bai | while read line; do samtools flagstat $line | grep mapped | head -n 1 >> counts-sort.txt; done;
 ls | grep sort.flt.bam | grep -v bai >> counts.files.txt
 
 ```
@@ -109,7 +110,7 @@ comb<-bind_cols(files, counts)
 
 Considering dropping the 0x2	PROPER_PAIR	flag in alignment, but then can't remove pcr duplicates, see 104-do-align-mapped.sh
 
-
+in data/mapped
 
 
 
