@@ -27,3 +27,37 @@ Expected plate barcodes
 b %>% select(`Library Index`) %>% group_by(`Library Index`) %>% summarize(Count=n())
 ```
 
+setting up locally in /home/maccamp/wall-canyon/data/raw   
+
+gunzip -c HS2253_S1_L003_R1_001.fastq.gz > r1.fastq 2> std.err &
+gunzip -c HS2253_S1_L003_R2_001.fastq.gz > r2.fastq 2> std.err &
+gunzip -c HS2253_S1_L003_R3_001.fastq.gz > r3.fastq 2> std.err &
+
+srun -p high -t 8:00:00 $HOME/scripts/run_split.sh r1.fastq r2.fastq r3.fastq HS2253
+
+What do we have?     
+`(base) maccamp@farm:~/wall-canyon/data/raw$ du -h *.fastq | sort -rh | head `  
+94G	r3.fastq    
+85G	r1.fastq    
+28G	HS2253_R3_GTCCGC.fastq     
+26G	HS2253_R3_AGTCAA.fastq     
+24G	HS2253_R3_GTGAAA.fastq    
+24G	HS2253_R1_GTCCGC.fastq     
+23G	HS2253_R1_AGTCAA.fastq    
+22G	HS2253_R1_GTGAAA.fastq    
+11G	HS2253_R3_ATGTCA.fastq    
+9.5G	HS2253_R1_ATGTCA.fastq    
+
+ln to ../split    /home/maccamp/wall-canyon/data/split    
+Then:    
+```{sh, eval=FALSE}
+ls *R1*.fastq > listR1
+ls *R3*.fastq > listR3
+ls *R1*fastq | sed "s/HS2253_R1_//g" | sed "s/\.fastq//g" | paste listR1 listR3 - > flist
+srun -t 12:00:00 -p high run_wellsplit.sh flist
+
+```
+
+
+
+
