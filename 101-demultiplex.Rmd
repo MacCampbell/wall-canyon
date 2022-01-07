@@ -80,6 +80,34 @@ write_tsv(commands, file="102-rename.sh",col_names = FALSE)
 ```
 
 
+Now to align!!!
+
+in data/renamed
+
+```{sh, eval=FALSE}
+ls | grep RA | perl -pe 's/.fastq//g' > forward
+ls | grep RB | perl -pe 's/.fastq//g' > reverse
+paste forward reverse  > sequences.txt
+ ../../103-do-align.sh sequences.txt $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna.gz
+
+```
+
+Get counts
+```{sh, eval=FALSE}
+ls | grep sort.flt.bam | grep -v bai | while read line; do samtools flagstat $line | grep mapped | head -n 1 >> counts.txt; done;
+ls | grep sort.flt.bam | grep -v bai >> counts.files.txt
+
+```
+
+Import.  
+```{r}
+files<-read_tsv("outputs/100/counts.files.txt", col_names="File")
+counts<-read_tsv("outputs/100/counts.txt", col_names="Counts")
+counts$Counts<-gsub(" + 0 mapped (100.00% : N/A)", "", counts$Counts, fixed = TRUE)
+comb<-bind_cols(files, counts)
+```
+
+Considering dropping the 0x2	PROPER_PAIR	flag in alignment
 
 
 
