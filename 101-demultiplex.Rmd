@@ -109,6 +109,7 @@ Import.
 files<-read_tsv("outputs/100/counts.files.txt", col_names="File")
 counts<-read_tsv("outputs/100/counts.txt", col_names="Counts")
 counts$Counts<-gsub(" + 0 mapped (100.00% : N/A)", "", counts$Counts, fixed = TRUE)
+counts$Counts<-as.numeric(counts$Counts)
 
 countssort<-read_tsv("outputs/100/counts-sort-numbers.txt", col_names="CountsSort")
 
@@ -133,7 +134,7 @@ Pull out related species
 close<-b3 %>% filter(`Scientific Name` %in% c("Catostomus warnerensis", "Catostomus fumeiventris",
                                        "Catostomus sp.")) %>%
   filter(Location != "Truckee River, NV") %>%
-  filter(CountsSort > 1e6)
+  filter(Counts> 200000)
 
 hist(close$CountsSort)
 close %>% group_by(`Scientific Name`) %>% summarize(Count=n())
@@ -149,34 +150,32 @@ samtools view -bs $frac input.bam > subsample.bam
 ### Test bamlist
 
 ```{r}
-write_tsv(select(close, Path), file="bamlists/test84.bamlist", col_names = FALSE)
+write_tsv(select(close, Path), file="bamlists/test97.bamlist", col_names = FALSE)
 ```
 
 
 Make PCA
 
 ```{sh, eval=FALSE}
-srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test84.bamlist \
--minInd 76 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
+srun -p high -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test97.bamlist \
+-minInd 87 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
 -doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
--out outputs/100/test84 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
+-out outputs/100/test97 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
 
-python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test84.beagle.gz -o outputs/100/test84 -threads 10
+python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test97.beagle.gz -o outputs/100/test97 -threads 10
 ```
 
-
-Read 84 samples and 9415 sites
+Read 97 samples and 8373 sites
 
 Estimating population allele frequencies
 EM (MAF) converged at iteration: 7
 
-Number of sites after MAF filtering (0.05): 7868
-
+Number of sites after MAF filtering (0.05): 6840
 
 ```{r}
 meta<-close 
 
-cov<-read_delim("outputs/100/test84.cov", col_names=FALSE, delim=" ") %>% as.matrix()
+cov<-read_delim("outputs/100/test97.cov", col_names=FALSE, delim=" ") %>% as.matrix()
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -257,7 +256,7 @@ pc12<-ggplot(sub12, aes(x = val_x, y = val_y, fill = Location, shape=`Species Co
   xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
   ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
   scale_fill_viridis_d(option = "magma") +
-  scale_shape_manual("Major Group", values = c(21,22,22,23,24,25)) +
+  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
   theme(legend.position = "")+
   ggtitle("A") +
   theme(plot.title = element_text(face="bold", size=16))
@@ -273,7 +272,7 @@ pc13<-ggplot(sub13, aes(x = val_x, y = val_y, fill = Location, shape=`Species Co
   xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
   ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
   scale_fill_viridis_d(option = "magma") +
-  scale_shape_manual("Major Group", values = c(21,22,22,23,24,25)) +
+  scale_shape_manual("Species Common Name", values = c(21,22,23,24,25)) +
   guides(fill = guide_legend(override.aes=list(shape=15, color= viridis(9, option="magma")))) +
   ggtitle("B") +
   theme(plot.title = element_text(face="bold", size=16))
@@ -286,33 +285,29 @@ ggsave("outputs/100/pcs.pdf", width=11, height=4.5)
 
 ```
 
+Owens sucker:
+```{r}
+ggplot(sub13 %>% filter(`Species Common Name`=="Owens Sucker"), aes(x = val_x, y = val_y, fill = Location, shape=`Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_shape_manual("Species Common Name", values = c(21,22,23,24,25)) +
+  guides(fill = guide_legend(override.aes=list(shape=21))) +
+  theme(plot.title = element_text(face="bold", size=16))
 
-## Removing PCR Duplicates
+ggsave("outputs/100/owens-pcs13.pdf", width=7, height=4.5)
+```
+
+## All the samples
 
 ```{r}
-close2<-b3 %>% filter(`Scientific Name` %in% c("Catostomus warnerensis", "Catostomus fumeiventris",
-                                       "Catostomus sp.")) %>%
-  filter(Location != "Truckee River, NV") 
+b4<-b3 %>% filter(Counts > 200000)
+b4 %>% group_by(`Scientific Name`, Location) %>% summarize(Count=n())
 
-close2$Counts<-as.numeric(close2$Counts)
-close2<- close2 %>% filter(Counts> 200000)
-
-hist(close2$Counts)
-close2 %>% group_by(`Scientific Name`) %>% summarize(Count=n())
+write_tsv(select(b4, Path), file="bamlists/test251.bamlist", col_names = FALSE)
 ```
 
-```{r}
-write_tsv(select(close2, Path), file="bamlists/test97.bamlist", col_names = FALSE)
-```
-
-Make PCA
-
-```{sh, eval=FALSE}
-srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test97.bamlist \
--minInd 87 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
--doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
--out outputs/100/test97 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
-
-python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test97.beagle.gz -o outputs/100/test97 -threads 10
-```
 
