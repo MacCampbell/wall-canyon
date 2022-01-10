@@ -11,6 +11,10 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
 
 ```{r}
 library(tidyverse)
+library(viridis)
+library(ggpubr)
+library(grid)
+library(gridExtra)
 ```
 
 
@@ -152,12 +156,163 @@ write_tsv(select(close, Path), file="bamlists/test84.bamlist", col_names = FALSE
 Make PCA
 
 ```{sh, eval=FALSE}
-srun -p high -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test84.bamlist \
+srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test84.bamlist \
 -minInd 76 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
 -doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
 -out outputs/100/test84 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
 
-python $HOME/pcangsd/pcangsd.py -beagle outputs/1102/318.beagle.gz -o outputs/1102/318 -threads 10
+python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test84.beagle.gz -o outputs/100/test84 -threads 10
 ```
 
+
+Read 84 samples and 9415 sites
+
+Estimating population allele frequencies
+EM (MAF) converged at iteration: 7
+
+Number of sites after MAF filtering (0.05): 7868
+
+
+```{r}
+meta<-close 
+
+cov<-read_delim("outputs/100/test84.cov", col_names=FALSE, delim=" ") %>% as.matrix()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Some shameless copying from Eric A.
+#' @param samples character vector with the individuals IDs in the order in which
+#' they were passed in the bamlist to angsd.
+#' @param cov covariance matrix
+covar2pcs <- function(samples, cov) {
+  
+  
+  eig <- eigen(cov, symm = TRUE)
+  PC <- as.data.frame(eig$vectors) %>%
+    as_tibble() %>%
+    setNames(sprintf("PC-%02d", 1:ncol(.)))
+  
+  samtib <- tibble(sample = samples)
+  
+  list(
+    PCs = bind_cols(samtib, PC),
+    eigevalues = eig$values
+  )
+}
+```
+
+```{r}
+pca <- covar2pcs(meta$`Sample ID`, cov)
+
+pca_long <- pca$PCs %>%
+  tidyr::gather(., key = "PC", "val", -sample)
+
+# then expand a grid of the possible comparisons (ordered)
+expg <- expand.grid(sample = pca$PCs$sample,
+                    PCx = sprintf("PC-%02d", 1:6),
+                    PCy = sprintf("PC-%02d", 1:6),
+                    stringsAsFactors = FALSE) %>%
+  tibble::as_tibble()
+
+# then left join the pca results onto that
+pca_pairs <- dplyr::left_join(expg, pca_long, by = c("sample", "PCx" = "PC")) %>%
+  dplyr::rename(val_x = val) %>%
+  dplyr::left_join(pca_long, by = c("sample", "PCy" = "PC")) %>%
+  dplyr::rename(val_y = val)
+
+pp_meta <- pca_pairs %>%   # just keep the first 6 PCs around
+  left_join(., meta, by = c("sample" = "Sample ID"))
+
+# now, that has the first 6 PCs in it.  If we want to focus on the just the
+# first 3, we could do 
+npc <- 3
+pp_meta2 <- pp_meta %>%
+  filter( (PCx %in% sprintf("PC-%02d", 1:npc)) & 
+            (PCy %in% sprintf("PC-%02d", 1:npc)) )
+
+ggplot(pp_meta2, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(pch = 21, size = 2) +
+  scale_fill_discrete(na.value = "white") + 
+  facet_grid(PCy ~ PCx, scales = "free")
+```
+
+```{r}
+eig <- eigen(cov, symm = TRUE)
+var<-eig$values/sum(eig$values)
+cumvar<-cumsum(eig$values)/sum(eig$values)
+
+head(var)
+head(cumvar)
+```
+
+
+```{r}
+sub12<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-02") )
+
+pc12<-ggplot(sub12, aes(x = val_x, y = val_y, fill = Location, shape=`Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "magma") +
+  scale_shape_manual("Major Group", values = c(21,22,22,23,24,25)) +
+  theme(legend.position = "")+
+  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+sub13<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-03") )
+
+pc13<-ggplot(sub13, aes(x = val_x, y = val_y, fill = Location, shape=`Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "magma") +
+  scale_shape_manual("Major Group", values = c(21,22,22,23,24,25)) +
+  guides(fill = guide_legend(override.aes=list(shape=15, color= viridis(9, option="magma")))) +
+  ggtitle("B") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+pcs<-ggarrange(pc12, pc13, ncol = 2, widths=c(1.1, 1.6))
+pcs
+
+ggsave("outputs/100/pcs.pdf", width=11, height=4.5)
+
+```
+
+
+## Removing PCR Duplicates
+
+```{r}
+close2<-b3 %>% filter(`Scientific Name` %in% c("Catostomus warnerensis", "Catostomus fumeiventris",
+                                       "Catostomus sp.")) %>%
+  filter(Location != "Truckee River, NV") 
+
+close2$Counts<-as.numeric(close2$Counts)
+close2<- close2 %>% filter(Counts> 200000)
+
+hist(close2$Counts)
+close2 %>% group_by(`Scientific Name`) %>% summarize(Count=n())
+```
+
+```{r}
+write_tsv(select(close2, Path), file="bamlists/test97.bamlist", col_names = FALSE)
+```
+
+Make PCA
+
+```{sh, eval=FALSE}
+srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test97.bamlist \
+-minInd 87 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
+-doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
+-out outputs/100/test97 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
+
+python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test97.beagle.gz -o outputs/100/test97 -threads 10
+```
 
