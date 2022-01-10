@@ -105,15 +105,59 @@ Import.
 files<-read_tsv("outputs/100/counts.files.txt", col_names="File")
 counts<-read_tsv("outputs/100/counts.txt", col_names="Counts")
 counts$Counts<-gsub(" + 0 mapped (100.00% : N/A)", "", counts$Counts, fixed = TRUE)
-comb<-bind_cols(files, counts)
+
+countssort<-read_tsv("outputs/100/counts-sort-numbers.txt", col_names="CountsSort")
+
+comb<-bind_cols(files, counts, countssort)
+comb
 ```
 
-Considering dropping the 0x2	PROPER_PAIR	flag in alignment, but then can't remove pcr duplicates, see 104-do-align-mapped.sh
-
-in data/mapped
 
 
+### Merge data
+
+```{r}
+b3 <- b2 %>% mutate(File=paste0(`Sample ID`,"_RA.sort.flt.bam"), 
+                    Path=paste0("data/renamed/",`Sample ID`,"_RA.sort.flt.bam" )) %>%
+  left_join(comb)
+```
 
 
+Pull out related species
+
+```{r}
+close<-b3 %>% filter(`Scientific Name` %in% c("Catostomus warnerensis", "Catostomus fumeiventris",
+                                       "Catostomus sp.")) %>%
+  filter(Location != "Truckee River, NV") %>%
+  filter(CountsSort > 1e6)
+
+hist(close$CountsSort)
+close %>% group_by(`Scientific Name`) %>% summarize(Count=n())
+```
+Note: We have some high coverage reads we can downsample: https://davemcg.github.io/post/easy-bam-downsampling/
+say to 500000    
+frac=$( samtools idxstats input.bam | cut -f3 | awk 'BEGIN {total=0} {total += $1} END {frac=500000/total; if (frac > 1) {print 1} else {print frac}}' )
+
+samtools view -bs $frac input.bam > subsample.bam
+
+
+
+### Test bamlist
+
+```{r}
+write_tsv(select(close, Path), file="bamlists/test84.bamlist", col_names = FALSE)
+```
+
+
+Make PCA
+
+```{sh, eval=FALSE}
+srun -p high -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test84.bamlist \
+-minInd 76 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
+-doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
+-out outputs/100/test84 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
+
+python $HOME/pcangsd/pcangsd.py -beagle outputs/1102/318.beagle.gz -o outputs/1102/318 -threads 10
+```
 
 
