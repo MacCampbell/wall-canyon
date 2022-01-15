@@ -16,21 +16,278 @@ library(viridis)
 library(ggpubr)
 library(grid)
 library(gridExtra)
+library(ggtree)
+library(vcfR)
+library(adegenet)
+library(ape)
+library(ggnetworx)
+library(phangorn)
+library(ggrepel)
 ```
 
 
 ## Create PCA
-
+Using all chroms.    
 ```{sh, eval=FALSE}
 srun -p high -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test251.bamlist \
 -minInd 226 -GL 1 -ref $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
 -doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 \
--out outputs/100/test251 -r CM033842.1 > outputs/100/beagle.out 2> outputs/100/beagle.err &
+-out outputs/100/test251 > outputs/100/beagle.out 2> outputs/100/beagle.err &
 
 python $HOME/pcangsd/pcangsd.py -beagle outputs/100/test251.beagle.gz -o outputs/100/test251 -threads 10
+```
+Read 251 samples and 415964 sites
+Number of sites after MAF filtering (0.05): 231515
+
+
+Generate some SNPs, 95% missing
+```{sh, eval=FALSE}
+srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
+-bam bamlists/test251.bamlist \
+-out /home/maccamp/wall-canyon/outputs/100/plink \
+-anc $HOME/genomes/myxocyprinus/GCA_019703515.1_MX_HiC_50CHRs.fa_genomic.fna \
+-minInd 239 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
+-doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/100/std.out 2>outputs/100/std.err &
+```
+
+```{r}
+b4<-read_tsv("outputs/100/b4.tsv")
+write_tsv(b4 %>% select(`Sample ID`), "outputs/100/samples251.tsv", col_names = FALSE)
+```
+
+plink.tped has 16,177 SNPs, locally
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples samples251.tsv -o recode.prune.reheadered.vcf recode.prune.vcf
+```
+
+
+Converting to phylip with asc
+```{sh, eval=FALSE}
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+
+#Now runnign py3, 
+ ~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy
+```
+251 samples, 3437 sites.
+
+Testing locally:
+
+```{sh, eval=FALSE}
+iqtree -s recode.prune.reheadered.min4.asc.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+Works, on cluster:
+
+```{sh, eval=FALSE}
+srun -p high -t 10:00:00 --nodes=1 iqtree -nt AUTO -s outputs/100/recode.prune.reheadered.min4.asc.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+### Tree
+
+```{r}
+ml<-read.tree("outputs/100/recode.prune.reheadered.min4.asc.phy.contree")
+
+t<-ggtree(ml)
+```
+
+```{r}
+t + geom_tiplab(size=2)
+ggsave("outputs/100/tree.pdf", height=15)
+``` 
+
+```{r}
+t + geom_nodelab(aes(label=node))
+```
+
+
+ 
+## PCA
+```{r}
+vcf<-read.vcfR(file="outputs/100/recode.prune.reheadered.vcf") 
+genind<-vcfR2genind(vcf)
+genind@pop<-as.factor(b4$`Species Common Name`)
+```
+
+```{r}
+gen<-genind
+X <- tab(gen, NA.method="mean")
+
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+
+
+
+```{r}
+pcdf<-as_tibble(pca1$l1) %>% rename(PC1=RS1, PC2=RS2, PC3=RS3)
+pcdf$Species<-pop(gen)
+
+eigens<-as_tibble(pca1$eig) %>% rename(Eigen=value) %>% mutate(Porportion=Eigen/sum(Eigen)*100)
+
+ggplot(pcdf)+geom_point(aes(x=PC1, y=PC2, fill=Species),pch=21, alpha=0.75, size=2)+
+  xlab(paste0("PC1 ", round(eigens$Porportion[1],2),"%")) +
+  ylab(paste0("PC2 ", round(eigens$Porportion[2],2),"%")) +
+  theme_bw()+
+  theme(panel.grid=element_blank()) +
+  theme(axis.title = element_text(face="bold")) +
+  theme(legend.title = element_text(face="bold"))
+```
+
+There aren't enough sites and the placement of Mountain Sucker in phylogeny isn't good
+
+Network:
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+```{r}
+
+data<-read.nexus.data("outputs/100/recode.prune.reheadered.min4.asc.nex")
+write.nexus.data(data, file="outputs/100/test.nex")
 ```
 
 
 ```{r}
-b4<-read_tsv("outputs/100/b4.tsv")
+network<-read.nexus.networx(file = "outputs/100/test-network.nex", splits=FALSE)
+pdf(file = "outputs/100/test-network.pdf", width=20, height=20)
+plot(network, edge.width = 0.5)
+dev.off()
+```
+
+
+## PCA from GLs
+
+
+
+```{r}
+meta<-b4 
+
+cov<-read_delim("outputs/100/test251.cov", col_names=FALSE, delim=" ") %>% as.matrix()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Some shameless copying from Eric A.
+#' @param samples character vector with the individuals IDs in the order in which
+#' they were passed in the bamlist to angsd.
+#' @param cov covariance matrix
+covar2pcs <- function(samples, cov) {
+  
+  
+  eig <- eigen(cov, symm = TRUE)
+  PC <- as.data.frame(eig$vectors) %>%
+    as_tibble() %>%
+    setNames(sprintf("PC-%02d", 1:ncol(.)))
+  
+  samtib <- tibble(sample = samples)
+  
+  list(
+    PCs = bind_cols(samtib, PC),
+    eigevalues = eig$values
+  )
+}
+```
+
+```{r}
+pca <- covar2pcs(meta$`Sample ID`, cov)
+
+pca_long <- pca$PCs %>%
+  tidyr::gather(., key = "PC", "val", -sample)
+
+# then expand a grid of the possible comparisons (ordered)
+expg <- expand.grid(sample = pca$PCs$sample,
+                    PCx = sprintf("PC-%02d", 1:6),
+                    PCy = sprintf("PC-%02d", 1:6),
+                    stringsAsFactors = FALSE) %>%
+  tibble::as_tibble()
+
+# then left join the pca results onto that
+pca_pairs <- dplyr::left_join(expg, pca_long, by = c("sample", "PCx" = "PC")) %>%
+  dplyr::rename(val_x = val) %>%
+  dplyr::left_join(pca_long, by = c("sample", "PCy" = "PC")) %>%
+  dplyr::rename(val_y = val)
+
+pp_meta <- pca_pairs %>%   # just keep the first 6 PCs around
+  left_join(., meta, by = c("sample" = "Sample ID"))
+
+# now, that has the first 6 PCs in it.  If we want to focus on the just the
+# first 3, we could do 
+npc <- 3
+pp_meta2 <- pp_meta %>%
+  filter( (PCx %in% sprintf("PC-%02d", 1:npc)) & 
+            (PCy %in% sprintf("PC-%02d", 1:npc)) )
+
+ggplot(pp_meta2, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(pch = 21, size = 2) +
+  scale_fill_discrete(na.value = "white") + 
+  facet_grid(PCy ~ PCx, scales = "free")
+```
+
+```{r}
+eig <- eigen(cov, symm = TRUE)
+var<-eig$values/sum(eig$values)
+cumvar<-cumsum(eig$values)/sum(eig$values)
+
+head(var)
+head(cumvar)
+```
+
+
+```{r}
+sub12<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-02") )
+centers12<- sub12 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique()
+pc12<-ggplot(sub12, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers12, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+  theme(legend.position = "")+
+  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+sub13<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-03") )
+centers13<- sub13 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique()
+locs13<-sub13 %>% group_by(Location) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(Location, meanX, meanY) %>% unique()
+
+pc13<-ggplot(sub13, aes(x = val_x, y = val_y, fill=`Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers13, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+ # scale_shape_manual("Species Common Name", values = c(21,22,23,24,25)) +
+ # guides(fill = guide_legend(override.aes=list(shape=15, color= viridis(12, option="magma")))) +
+  ggtitle("B") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+pcs<-ggarrange(pc12, pc13, ncol = 2, widths=c(1.1, 1.6))
+pcs
+
+ggsave("outputs/100/pcs251.pdf", width=11, height=4.5)
+
+```
+
+```{r}
+ggplot(sub13, aes(x = val_x, y = val_y)) +
+  geom_point(aes( fill=`Species Common Name`), size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=locs13, aes(x=meanX, y=meanY, label=Location), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw() +
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") 
+
+ggsave("outputs/100/pcs251-locations.pdf", width=8, height=4.5)
+
 ```

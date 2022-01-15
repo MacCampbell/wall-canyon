@@ -306,7 +306,7 @@ ggsave("outputs/100/owens-pcs13.pdf", width=7, height=4.5)
 ```{r}
 b4<-b3 %>% filter(Counts > 200000)
 b4 %>% group_by(`Scientific Name`, Location) %>% summarize(Count=n())
-
+write_tsv(b4, "outputs/100/b4.tsv")
 write_tsv(select(b4, Path), file="bamlists/test251.bamlist", col_names = FALSE)
 ```
 
