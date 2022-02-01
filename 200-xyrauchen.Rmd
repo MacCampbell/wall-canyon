@@ -118,13 +118,16 @@ write_tsv(select(b4, NewPath), file="bamlists/test260.bamlist", col_names = FALS
 ```
 
 ```{r}
-b5 <- b4 %>% filter(Counts > 1.5e6)
+b5 <- b4 %>% filter(Counts > 1.5e6) %>% mutate(Frac=1.5e6/Counts) %>% 
+  mutate(ReductionCommand = paste0("samtools view -bs ",Frac, " ", Path, " > ", "data/reduced/",`Sample ID`,"_RA.reduced.bam" ))
 
+write_tsv(b5 %>% select(ReductionCommand), col_names = FALSE, "bamlists/highrollers-reduce.sh")
 write_tsv(b5 %>% select(Path), col_names = FALSE, "bamlists/highrollers.bamlist")
 ```
 
-```{sh, eval=FALSE}
-frac=$( samtools idxstats input.bam | cut -f3 | awk 'BEGIN {total=0} {total += $1} END {frac=1500000/total; if (frac > 1) {print 1} else {print frac}}' )
 
-cat bamlists/highrollers.bamlist | while read line; do echo `basename $line .sort.flt.bam`; samtools view -bs $frac $line > data/reduced/`basename $line .sort.flt.bam`.reduced.bam; done;
-```
+(base) maccamp@farm:~/wall-canyon$ samtools view -bs 0.72971608206679 data/mapped/KSS_3734-015_RA.sort.flt.bam > data/reduced/KSS_3734-015_RA.reduced.bam
+
+Checks out.     
+
+
