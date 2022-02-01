@@ -302,10 +302,10 @@ mv data/split/GTGAAA_RA_GGGTGTTCTATGCAG.fastq data/renamed/KSS_3734-010_RA.fastq
 mv data/split/GTGAAA_RA_GGAAGGACACTGCAG.fastq data/renamed/KSS_3734-011_RA.fastq
 mv data/split/GTGAAA_RA_GGCAAGGAGCTGCAG.fastq data/renamed/KSS_3734-012_RA.fastq
 mv data/split/GTGAAA_RA_GGGATGAATCTGCAG.fastq data/renamed/KSS_3734-013_RA.fastq
-mv data/split/GTGAAA_RA_GGAGTGGTCATGCAG.fastq data/renamed/KSS_3734-013_RA.fastq
-mv data/split/GTGAAA_RA_GGAGAGTCAATGCAG.fastq data/renamed/KSS_3734-014_RA.fastq
-mv data/split/GTGAAA_RA_GGCCAGTTCATGCAG.fastq data/renamed/KSS_3734-015_RA.fastq
-mv data/split/GTGAAA_RA_GGGAGCTGAATGCAG.fastq data/renamed/KSS_3734-016_RA.fastq
+mv data/split/GTGAAA_RA_GGAGTGGTCATGCAG.fastq data/renamed/KSS_3734-014_RA.fastq
+mv data/split/GTGAAA_RA_GGAGAGTCAATGCAG.fastq data/renamed/KSS_3734-015_RA.fastq
+mv data/split/GTGAAA_RA_GGCCAGTTCATGCAG.fastq data/renamed/KSS_3734-016_RA.fastq
+mv data/split/GTGAAA_RA_GGGAGCTGAATGCAG.fastq data/renamed/KSS_3734-017_RA.fastq
 mv data/split/AGTCAA_RB_GGACAAGCTATGCAG.fastq data/renamed/WS_DC01_RB.fastq
 mv data/split/AGTCAA_RB_GGAACAACCATGCAG.fastq data/renamed/WS_DC02_RB.fastq
 mv data/split/AGTCAA_RB_GGAGATCGCATGCAG.fastq data/renamed/WS_DC03_RB.fastq
@@ -610,7 +610,7 @@ mv data/split/GTGAAA_RB_GGGTGTTCTATGCAG.fastq data/renamed/KSS_3734-010_RB.fastq
 mv data/split/GTGAAA_RB_GGAAGGACACTGCAG.fastq data/renamed/KSS_3734-011_RB.fastq
 mv data/split/GTGAAA_RB_GGCAAGGAGCTGCAG.fastq data/renamed/KSS_3734-012_RB.fastq
 mv data/split/GTGAAA_RB_GGGATGAATCTGCAG.fastq data/renamed/KSS_3734-013_RB.fastq
-mv data/split/GTGAAA_RB_GGAGTGGTCATGCAG.fastq data/renamed/KSS_3734-013_RB.fastq
-mv data/split/GTGAAA_RB_GGAGAGTCAATGCAG.fastq data/renamed/KSS_3734-014_RB.fastq
-mv data/split/GTGAAA_RB_GGCCAGTTCATGCAG.fastq data/renamed/KSS_3734-015_RB.fastq
-mv data/split/GTGAAA_RB_GGGAGCTGAATGCAG.fastq data/renamed/KSS_3734-016_RB.fastq
+mv data/split/GTGAAA_RB_GGAGTGGTCATGCAG.fastq data/renamed/KSS_3734-014_RB.fastq
+mv data/split/GTGAAA_RB_GGAGAGTCAATGCAG.fastq data/renamed/KSS_3734-015_RB.fastq
+mv data/split/GTGAAA_RB_GGCCAGTTCATGCAG.fastq data/renamed/KSS_3734-016_RB.fastq
+mv data/split/GTGAAA_RB_GGGAGCTGAATGCAG.fastq data/renamed/KSS_3734-017_RB.fastq

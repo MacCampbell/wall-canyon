@@ -125,6 +125,14 @@ comb
 b3 <- b2 %>% mutate(File=paste0(`Sample ID`,"_RA.sort.flt.bam"), 
                     Path=paste0("data/renamed/",`Sample ID`,"_RA.sort.flt.bam" )) %>%
   left_join(comb)
+mean(na.omit(b3$Counts))
+```
+
+One without any counts.
+```{r}
+ggplot(b3) +
+  geom_histogram(aes(x = Counts, fill=`Scientific Name`)) +
+  theme_bw()
 ```
 
 
