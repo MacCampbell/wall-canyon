@@ -1,0 +1,31 @@
+---
+title: "202-plot-network"
+author: "Mac Campbell"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
+```
+
+```{r}
+library(ggtree)
+library(phangorn)
+library(tanggle)
+```
+
+## Let's plot a network
+https://klausvigo.github.io/tanggle/articles/tanggle_vignette.html      
+tanggle "Nexus file created with SplitsTree (Huson and Bryant 2006) and read with the read.nexus.network function in phangorn (Schliep 2011)."    
+
+```{r}
+Nnet <- phangorn::read.nexus.networx("outputs/200/full-export.next")
+```
+
+```{r}
+p <- ggsplitnet(Nnet) + geom_tiplab2()
+p
+```
+
+We sh

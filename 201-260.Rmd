@@ -37,16 +37,20 @@ srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlis
 python $HOME/pcangsd/pcangsd.py -beagle outputs/200/test260.beagle.gz -o outputs/200/test260 -threads 10
 ```
 
+Read 260 samples and 242050 sites    
+Number of sites after MAF filtering (0.05): 242043    
+
 Generate some SNPs, 95% missing
 ```{sh, eval=FALSE}
 srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
 -bam bamlists/test260.bamlist \
 -out /home/maccamp/wall-canyon/outputs/200/plink \
--anc $HOME/genomes//xyrauchen/Xyrauchen_texanus.faa \
+-anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 247 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/200/std.out 2>outputs/200/std.err &
 ```
 
+plink.tped has 19058 snps!  This is ~3000 more than with the Myxocyprinus reference.
 get meta
 
 ```{r}
@@ -188,4 +192,99 @@ ggplot(sub13, aes(x = val_x, y = val_y)) +
 
 ggsave("outputs/200/pcs260-locations.pdf", width=8, height=4.5)
 
+```
+
+## Network
+Let's make a network!!!
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples samples260.tsv -o recode.prune.reheadered.vcf recode.prune.vcf
+```
+
+Convert to phylip, then nexus.   
+What about missing data??    
+
+```{sh, eval=FALSE}
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+seqConverter.pl -drecode.prune.reheadered.min4.phy -on
+
+#Corrected for ascertainment bias
+~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+
+#Now remove missing??
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
+seqConverter.pl -dfiltered.phy -on
+
+```
+    
+
+```{r}
+data<-read.nexus.data("outputs/200/recode.prune.reheadered.min4.nex")
+write.nexus.data(data, file="outputs/200/test260.nex")
+
+data<-read.nexus.data("outputs/200/recode.prune.reheadered.min4.asc.nex")
+write.nexus.data(data, file="outputs/200/test260.asc.nex")
+
+data<-read.nexus.data("outputs/200/filtered.nex")
+write.nexus.data(data, file="outputs/200/test260.filtered.nex")
+```
+
+```{r}
+network<-read.nexus.networx(file = "outputs/200/test260-network.nex", splits=FALSE)
+pdf(file = "outputs/200/test260-network.pdf", width=20, height=20)
+plot(network, edge.width = 0.5)
+dev.off()
+```
+
+```{r}
+network<-read.nexus.networx(file = "outputs/200/test260-network.asc.nex", splits=FALSE)
+pdf(file = "outputs/200/test260-network.asc.pdf", width=20, height=20)
+plot(network, edge.width = 0.5)
+dev.off()
+```
+
+```{r}
+network<-read.nexus.networx(file = "outputs/200/test260-network.filtered.nex", splits=FALSE)
+pdf(file = "outputs/200/test260-network.filtered.pdf", width=20, height=20)
+plot(network, edge.width = 0.5)
+dev.off()
+```
+
+Make it more readable?
+
+Consensus network
+
+```{r}
+dna<-read.phyDat("outputs/200/filtered.phy")
+dat<-as.phyDat(dna)
+set.seed(1)
+bs <- bootstrap.phyDat(dat, FUN = function(x)nj(dist.hamming(x)), 
+    bs=100)
+tree <- nj(dist.hamming(dat))
+#par("mar" = rep(1, 4))
+#tree<-root(tree, c("PCT_PPP1_01\t","LCT_GACR_10\t"))
+#tree <- plotBS(tree, bs, "phylogram")
+
+#By default prob=0.3
+cnet <- consensusNet(bs, .25)
+cnet$tip.label<-gsub("\t","",cnet$tip.label)
+
+#plot(cnet, "2D", show.edge.label=TRUE)
+
+edge.col <- createLabel(cnet, tree, "black", nomatch="red")
+
+plot(cnet, show.edge.label = T, "2D", edge.color = edge.col,
+                  col.edge.label = "blue", cex=.75)
+```
+
+
+```{r}
+pdf(file = "outputs/200/test260-consensus-network.filtered.pdf", width=20, height=20)
+plot(cnet, show.edge.label = T, "2D", edge.color = edge.col,
+                col.edge.label = "blue", cex=.75)
+dev.off()
 ```
