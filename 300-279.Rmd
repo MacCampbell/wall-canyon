@@ -1,0 +1,36 @@
+---
+title: "300-279"
+author: "Mac Campbell"
+date: "3/16/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+## Boosting occidentalis occidentalis
+We can include more occidentalis occidentalis by reducing reads to 90000.
+
+Generate beagle file and SNPs
+
+
+```{sh, eval=FALSE}
+srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test279.bamlist \
+-minInd 251 -GL 1 -ref $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 -minMaf 0.05 \
+-out outputs/300/test279 > outputs/300/beagle.out 2> outputs/300/beagle.err &
+
+python $HOME/pcangsd/pcangsd.py -beagle outputs/300/test279.beagle.gz -o outputs/300/test279 -threads 10
+```
+
+
+Generate some SNPs, 95% missing
+```{sh, eval=FALSE}
+srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
+-bam bamlists/test279.bamlist \
+-out /home/maccamp/wall-canyon/outputs/200/plink \
+-anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-minInd 265 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
+-doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/300/std.out 2>outputs/300/std.err &
+```

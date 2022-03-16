@@ -130,4 +130,17 @@ write_tsv(b5 %>% select(Path), col_names = FALSE, "bamlists/highrollers.bamlist"
 
 Checks out.     
 
+### Creating alignnment with more C occidentalis occidentalis
+```{r}
+more <- read_csv("meta/additional-meta.csv")
+mmeta <- b3 %>% left_join(more, by=c("Sample ID"="GVL Code"))
+b6<-mmeta %>% filter(Counts > .9e5) %>% mutate(NewPath = ifelse(Counts > 1.5e6, paste0("data/reduced/",`Sample ID`,"_RA.reduced.bam"), Path))
+b6 %>% group_by(`Scientific Name`,Subspecies ) %>% summarize(Count=n())
+
+
+write_tsv(b6, "outputs/200/b6.tsv")
+
+
+write_tsv(select(b4, NewPath), file="bamlists/test279.bamlist", col_names = FALSE)
+```
 

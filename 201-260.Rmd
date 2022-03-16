@@ -20,7 +20,6 @@ library(ggtree)
 library(vcfR)
 library(adegenet)
 library(ape)
-library(ggnetworx)
 library(phangorn)
 library(ggrepel)
 ```
@@ -179,6 +178,7 @@ ggsave("outputs/200/pcs260.pdf", width=11, height=4.5)
 
 ```
 
+
 ```{r}
 ggplot(sub13, aes(x = val_x, y = val_y)) +
   geom_point(aes( fill=`Species Common Name`), size = 2, alpha=0.75, pch=21) +
@@ -194,6 +194,91 @@ ggsave("outputs/200/pcs260-locations.pdf", width=8, height=4.5)
 
 ```
 
+##Plot by Common name
+```{r}
+ggplot(sub12, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers12, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+
+```{r}
+ggplot(sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")),
+       aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+```{r}
+sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_x > -0.10) %>% filter(val_y < 0.1)
+```
+
+
+
+```{r}
+mountain<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_x > -0.07)
+
+ggplot(mountain, aes(x = val_x, y = val_y, fill = `Location`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+```{r}
+write_tsv(mountain %>% select(sample), "outputs/202/mymountains.tsv")
+```
+
+```{r}
+tahoe<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_x < -0.10)
+
+ggplot(tahoe, aes(x = val_x, y = val_y, fill = `Location`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+
+```{r}
+write_tsv(tahoe %>% select(sample), "outputs/202/mytahoe.tsv")
+```
 ## Network
 Let's make a network!!!
 
