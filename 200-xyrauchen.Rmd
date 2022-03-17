@@ -141,6 +141,6 @@ b6 %>% group_by(`Scientific Name`,Subspecies ) %>% summarize(Count=n())
 write_tsv(b6, "outputs/200/b6.tsv")
 
 
-write_tsv(select(b4, NewPath), file="bamlists/test279.bamlist", col_names = FALSE)
+write_tsv(select(b6, NewPath), file="bamlists/test279.bamlist", col_names = FALSE)
 ```
 

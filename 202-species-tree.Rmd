@@ -126,6 +126,21 @@ p3
 
 ggsave("outputs/202/k3.jpg")
 ```
+```{r}
+ ggplot(q3s %>% filter(Location %in% c("East Fork Carson River, NV","Poore Creek, CA","Truckee River, NV"))) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  theme(legend.position = "") +
+#  scale_x_continuous(breaks=pops3$Position, labels=pops3$`Species Common Name`) +
+#  theme(axis.text.x=element_text(angle=45)) +
+  facet_grid(`Species Common Name`~Location)
+
+ggsave("outputs/202/k3-facet.jpg", width=16, height=12)
+
+```
+
+
 
 ```{r}
 r<-df3 %>% filter(Q1>0.95) %>% mutate(TipName=`Species Common Name`)
@@ -134,7 +149,6 @@ t<-df3 %>% filter(Q3>0.95) %>% mutate(TipName="Tahoe Sucker")
 
 
 ```
-Now 230 fish~but drops out "pure" tahoe.
 
 Previously.
 ```{r, eval=FALSE}
