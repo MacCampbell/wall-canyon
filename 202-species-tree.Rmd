@@ -182,4 +182,14 @@ write_tsv(treemeta %>% ungroup() %>% select(String), "outputs/202/tipnames.txt")
 
 Produces a reasonable tree, but, we are missing a lot of C. occidentalis occidentalis.
 
+```{r}
+t<-read.nexus("outputs/202/svdq/svdq-suckers.asc.tre")
+t<-root(t, c("Truckee_River__NV_Mountain_Sucker","Poore_Creek__CA_Mountain_Sucker"))
+
+ggtree(t, branch.length = "none") +
+  geom_nodelab() +
+  geom_tiplab() +
+  xlim(0,20)
+```
+
 

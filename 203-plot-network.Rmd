@@ -1,0 +1,95 @@
+---
+title: "203-plot-network"
+author: "Mac Campbell"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggtree)
+library(ape)
+library(phangorn)
+library(viridis)
+```
+
+### Convert data
+
+```{r}
+dat<-read.nexus.data(file="outputs/202/svdq/259-svdq.nex")
+write.nexus.data(dat, file="outputs/203/259-forsplits.nex")
+```
+
+
+```{r}
+network<-read.nexus.networx(file = "outputs/203/259-splits.nex", splits=FALSE)
+plot(network)
+```
+
+#Get meta, color by Q
+
+```{r}
+b4<-read_tsv("outputs/200/b4.tsv")
+```
+
+```{r}
+deets <- read_csv("meta/additional-meta.csv")
+meta <- b4 %>% left_join(deets, by=c("Sample ID"="GVL Code"))
+```
+
+```{r}
+q2<-read_delim("outputs/202/ngsadmix-k2.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2) %>%
+  rename(Q1=X1, Q2=X2)
+
+df2<-bind_cols(q2, meta)            
+
+#Hmmm.... Seems we may want to add a column of K=2 so that we can facet later. But we may need to plot separately so that we can all the colors lined up using ggarrange
+
+q2s<-df2 %>% select(`Species Common Name`, Location, `Sample ID`, Q1, Q2) %>% arrange(`Species Common Name`, Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 4:5) %>% mutate(K=2)
+
+pops2<-q2s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(`Species Common Name`,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+
+```{r}
+df3<-df2
+df3$`Sample ID`<-gsub("-","_",df2$`Sample ID`)
+tips<-as_tibble(network$tip.label) %>% rename(`Sample ID`=value) %>% left_join(df3)
+brks <- with(tips, seq(min(Q1), max(Q1), length.out = 30))
+grps <- with(tips, cut(Q1, breaks = brks, include.lowest = TRUE))
+cols<-viridis(n=30, option = "magma")[grps]
+```
+
+```{r}
+par(bg = "grey50")
+plot(network, tip.color = cols, edge.width = 0.5, cex=0.4)
+```
+
+```{r}
+
+pdf(file = "outputs/203/k2-q-coded.pdf", width=6, height=6)
+par(bg = "grey50")
+
+plot(network, tip.color = cols, edge.width = 0.5, cex=0.5)
+
+dev.off()
+
+```
+
+```{r}
+species<-length(unique(df3$`Species Common Name`))
+cols2<-viridis(n=12, option="H")[as.numeric(as.factor(tips$`Species Common Name`))]
+
+pdf(file = "outputs/203/species-coded.pdf", width=6, height=6)
+plot(network, tip.color = cols2, edge.width = 0.5, cex=0.3)
+legend("topright", levels(as.factor(tips$`Species Common Name`)), text.col=viridis(n=12, option="H"), cex=0.3)
+dev.off()
+
+```

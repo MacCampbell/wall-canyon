@@ -9,6 +9,20 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```
 
+```{r}
+library(tidyverse)
+library(viridis)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(ggtree)
+library(vcfR)
+library(adegenet)
+library(ape)
+library(phangorn)
+library(ggrepel)
+```
+
 ## Boosting occidentalis occidentalis
 We can include more occidentalis occidentalis by reducing reads to 90000.
 
@@ -16,7 +30,7 @@ Generate beagle file and SNPs
 
 
 ```{sh, eval=FALSE}
-srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/test279.bamlist \
+srun -p med -t 12:00:00 --mem=32G --nodes=1 $HOME/angsd/angsd -P 12  -bam bamlists/test279.bamlist \
 -minInd 251 -GL 1 -ref $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 -minMaf 0.05 \
 -out outputs/300/test279 > outputs/300/beagle.out 2> outputs/300/beagle.err &
@@ -24,13 +38,485 @@ srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlis
 python $HOME/pcangsd/pcangsd.py -beagle outputs/300/test279.beagle.gz -o outputs/300/test279 -threads 10
 ```
 
+(base) maccamp@farm:~/wall-canyon$ python $HOME/pcangsd/pcangsd.py -beagle outputs/300/test279.beagle.gz -o outputs/300/test279 -threads 10
+PCAngsd 0.982
+Using 10 thread(s)
+
+Parsing Beagle file
+Read 279 samples and 167411 sites
+
+Estimating population allele frequencies
+EM (MAF) converged at iteration: 6
+
+Number of sites after MAF filtering (0.05): 167404
 
 Generate some SNPs, 95% missing
 ```{sh, eval=FALSE}
-srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
+srun -p med -t 24:00:00 --mem=16G --nodes=1 angsd -P 12 \
 -bam bamlists/test279.bamlist \
--out /home/maccamp/wall-canyon/outputs/200/plink \
+-out /home/maccamp/wall-canyon/outputs/300/plink \
 -anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 265 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/300/std.out 2>outputs/300/std.err &
+```
+
+
+## Admixture
+```{sh, eval=FALSE}
+srun -p high -t 2:00:00 --nodes=1 $HOME/angsd/misc/NGSadmix -likes outputs/300/test279.beagle.gz -K 2 -o outputs/300/ngsadmix-k2 -P 1
+srun -p high -t 2:00:00 --nodes=1 $HOME/angsd/misc/NGSadmix -likes outputs/300/test279.beagle.gz -K 3 -o outputs/300/ngsadmix-k3 -P 1
+```
+
+
+for i in {3..10}; do echo $i; $HOME/angsd/misc/NGSadmix -likes outputs/300/test279.beagle.gz -K $i -o outputs/300/ngsadmix-k$i -P 2; done;
+
+
+## Read in and plot
+
+```{r}
+meta<-read_tsv("outputs/200/b6.tsv")
+```
+
+
+## PCA
+```{r}
+cov<-read_delim("outputs/300/test279.cov", col_names=FALSE, delim=" ") %>% as.matrix()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Some shameless copying from Eric A.
+#' @param samples character vector with the individuals IDs in the order in which
+#' they were passed in the bamlist to angsd.
+#' @param cov covariance matrix
+covar2pcs <- function(samples, cov) {
+  
+  
+  eig <- eigen(cov, symm = TRUE)
+  PC <- as.data.frame(eig$vectors) %>%
+    as_tibble() %>%
+    setNames(sprintf("PC-%02d", 1:ncol(.)))
+  
+  samtib <- tibble(sample = samples)
+  
+  list(
+    PCs = bind_cols(samtib, PC),
+    eigevalues = eig$values
+  )
+}
+```
+
+```{r}
+pca <- covar2pcs(meta$`Sample ID`, cov)
+
+pca_long <- pca$PCs %>%
+  tidyr::gather(., key = "PC", "val", -sample)
+
+# then expand a grid of the possible comparisons (ordered)
+expg <- expand.grid(sample = pca$PCs$sample,
+                    PCx = sprintf("PC-%02d", 1:6),
+                    PCy = sprintf("PC-%02d", 1:6),
+                    stringsAsFactors = FALSE) %>%
+  tibble::as_tibble()
+
+# then left join the pca results onto that
+pca_pairs <- dplyr::left_join(expg, pca_long, by = c("sample", "PCx" = "PC")) %>%
+  dplyr::rename(val_x = val) %>%
+  dplyr::left_join(pca_long, by = c("sample", "PCy" = "PC")) %>%
+  dplyr::rename(val_y = val)
+
+pp_meta <- pca_pairs %>%   # just keep the first 6 PCs around
+  left_join(., meta, by = c("sample" = "Sample ID"))
+
+# now, that has the first 6 PCs in it.  If we want to focus on the just the
+# first 3, we could do 
+npc <- 3
+pp_meta2 <- pp_meta %>%
+  filter( (PCx %in% sprintf("PC-%02d", 1:npc)) & 
+            (PCy %in% sprintf("PC-%02d", 1:npc)) )
+
+ggplot(pp_meta2, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(pch = 21, size = 2) +
+  scale_fill_discrete(na.value = "white") + 
+  facet_grid(PCy ~ PCx, scales = "free")
+```
+
+```{r}
+eig <- eigen(cov, symm = TRUE)
+var<-eig$values/sum(eig$values)
+cumvar<-cumsum(eig$values)/sum(eig$values)
+
+head(var)
+head(cumvar)
+```
+
+
+```{r}
+sub12<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-02") )
+centers12<- sub12 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique()
+pc12<-ggplot(sub12, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers12, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+  theme(legend.position = "")+
+  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+sub13<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-03") )
+centers13<- sub13 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique()
+locs13<-sub13 %>% group_by(Location) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(Location, meanX, meanY) %>% unique()
+
+pc13<-ggplot(sub13, aes(x = val_x, y = val_y, fill=`Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers13, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+ # scale_shape_manual("Species Common Name", values = c(21,22,23,24,25)) +
+ # guides(fill = guide_legend(override.aes=list(shape=15, color= viridis(12, option="magma")))) +
+  ggtitle("B") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+
+pcs<-ggarrange(pc12, pc13, ncol = 2, widths=c(1.1, 1.6))
+pcs
+
+ggsave("outputs/300/pcs279.pdf", width=11, height=4.5)
+
+```
+
+
+```{r}
+ggplot(sub13, aes(x = val_x, y = val_y)) +
+  geom_point(aes( fill=`Species Common Name`), size = 2, alpha=0.75, pch=21) +
+  geom_text_repel(data=locs13, aes(x=meanX, y=meanY, label=Location), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw() +
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") 
+
+ggsave("outputs/300/pcs279-locations.pdf", width=8, height=4.5)
+
+```
+
+
+```{r}
+ggplot(sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")),
+       aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+
+```{r}
+myhybrid<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_x > -0.10) %>% filter(val_y < 0.1)
+
+myhybrid
+```
+
+
+
+```{r}
+mountain<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_y > 0.10)
+
+ggplot(mountain, aes(x = val_x, y = val_y, fill = `Location`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+```{r}
+write_tsv(mountain %>% select(sample), "outputs/300/mymountains.tsv")
+```
+
+```{r}
+tahoe<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>%
+  filter(val_y < 0.10)
+
+ggplot(tahoe, aes(x = val_x, y = val_y, fill = `Location`)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) +
+  facet_wrap(.~`Species Common Name`)
+```
+
+```{r}
+write_tsv(tahoe %>% select(sample), "outputs/300/mytahoe.tsv")
+```
+## Admix
+```{r}
+q2<-read_delim("outputs/300/ngsadmix-k2.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2) %>%
+  rename(Q1=X1, Q2=X2)
+
+df2<-bind_cols(q2, meta)            
+
+#Hmmm.... Seems we may want to add a column of K=2 so that we can facet later. But we may need to plot separately so that we can all the colors lined up using ggarrange
+
+q2s<-df2 %>% select(`Species Common Name`, Location, `Sample ID`, Q1, Q2) %>% arrange(`Species Common Name`, Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 4:5) %>% mutate(K=2)
+
+pops2<-q2s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(`Species Common Name`,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+
+```{r}
+p2 <- ggplot(q2s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0, xend= pops2$Stop[length(pops2$Stop)], y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0, xend= pops2$Stop[length(pops2$Stop)], y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops2$Stop[length(pops2$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  theme(legend.position = "") +
+  scale_x_continuous(breaks=pops2$Position, labels=pops2$`Species Common Name`) +
+  theme(axis.text.x=element_text(angle=45))
+
+  
+p2
+
+ggsave("outputs/300/k2.jpg")
+```
+
+Those eerily 50/50 ones may be the Tahoe suckers.
+
+```{r}
+q3<-read_delim("outputs/300/ngsadmix-k3.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2, X3) %>%
+  rename(Q1=X1, Q2=X2, Q3=X3)
+
+df3<-bind_cols(meta,q3)            
+
+#Hmmm.... Seems we may want to add a column of K=2 so that we can facet later. But we may need to plot separately so that we can all the colors lined up using ggarrange
+
+q3s<-df3 %>% select(`Species Common Name`, Location, `Sample ID`, Q1, Q2, Q3) %>% arrange(`Species Common Name`, Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 4:6) %>% mutate(K=3)
+
+pops3<-q3s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(`Species Common Name`,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+
+```{r}
+p3 <- ggplot(q3s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops3, x = pops3$Start - 0.5, y=0, xend = pops3$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops3, x = pops3$Stop[length(pops3$Stop)]  + 0.5, y=0, xend= pops3$Stop[length(pops3$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0, xend= pops3$Stop[length(pops3$Stop)], y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0, xend= pops3$Stop[length(pops3$Stop)], y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops3$Stop[length(pops3$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  theme(legend.position = "") +
+  scale_x_continuous(breaks=pops3$Position, labels=pops3$`Species Common Name`) +
+  theme(axis.text.x=element_text(angle=45))
+
+  
+p3
+
+ggsave("outputs/300/k3.jpg")
+```
+
+```{r}
+ ggplot(q3s %>% filter(Location %in% c("East Fork Carson River, NV","Poore Creek, CA","Truckee River, NV"))) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  theme(legend.position = "") +
+#  scale_x_continuous(breaks=pops3$Position, labels=pops3$`Species Common Name`) +
+#  theme(axis.text.x=element_text(angle=45)) +
+  facet_grid(`Species Common Name`~Location)
+
+ggsave("outputs/300/k3-facet.jpg", width=16, height=12)
+
+```
+Hmmm... Not getting very clear separation 
+
+### Identifying mountains
+Using mymountains and mytahoe
+
+```{r}
+idm<-mountain %>% select(`sample`) %>% mutate(RealID="Mountain Sucker") %>% rename(`Sample ID`=sample)
+idt<-tahoe    %>% select(`sample`) %>% mutate(RealID="Tahoe Sucker") %>% rename(`Sample ID`=sample)
+hyb<-myhybrid %>% select(sample) %>% mutate(RealID="Hybrid") %>% rename(`Sample ID`=sample)
+combid<-bind_rows(idm,idt,hyb)
+
+species<-q3s %>% filter(Location %in% c("East Fork Carson River, NV","Poore Creek, CA","Truckee River, NV")) %>% 
+  left_join(combid)
+
+```
+
+```{r}
+ ggplot(species) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  theme(legend.position = "") +
+#  scale_x_continuous(breaks=pops3$Position, labels=pops3$`Species Common Name`) +
+#  theme(axis.text.x=element_text(angle=45)) +
+  facet_grid(`Species Common Name`~RealID)
+
+````
+
+
+In terms of PCA     
+
+```{r}
+sdf<-sub12 %>% filter(`Species Common Name` %in% c("Mountain Sucker", "Tahoe Sucker", "Unidentified Sucker")) %>% 
+  left_join(combid, by=c("sample"="Sample ID"))
+                    
+sdf$RealID<-as.factor(sdf$RealID)
+
+ggplot(sdf, aes(x = val_x, y = val_y, fill=RealID)) +
+  geom_point(size = 2, alpha=0.75, pch=21) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_viridis_d(option = "jet") +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+#  theme(legend.position = "")+
+#  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16)) 
+```     
+
+Great, I have it figured out. Now to generate a species tree/network.
+
+#### Species Tree
+
+```{r}
+m2<- mountain %>% mutate(id="Mountain Sucker") %>% rename(`Sample ID`=sample)
+t2<- tahoe %>%  mutate(id="Tahoe Sucker") %>% rename(`Sample ID`=sample)
+renames<- bind_rows(m2, t2)
+
+new<-meta %>% left_join(renames) %>% mutate(TipName=ifelse(`Sample ID` %in% renames$`Sample ID`, id, `Species Common Name`)) %>% filter(`Sample ID` != myhybrid$sample)
+
+new$`Sample ID`<-gsub("-","_",new$`Sample ID`)
+new$Location<-gsub(",| ", "_",new$Location)
+new$TipName<-gsub(" ","_",new$TipName)
+```
+
+278 samples bc hybrid dropped.      
+
+```{r}
+treemeta<- new %>% select(`Sample ID`, Location, TipName) %>% group_by(Location, TipName) %>%  
+  summarize(Samples=paste0(`Sample ID`, collapse="\t"), `Sample Size` =n()) %>%
+  mutate(String=paste0(Location,"_",TipName,":\t",Samples,","))
+write_tsv(treemeta %>% ungroup() %>% select(String), "outputs/300/tipnames.txt")
+```
+
+Preparing files....
+
+```{r}
+write_tsv(meta %>% select(`Sample ID`), col_names = FALSE, "outputs/300/samples279.tsv")
+```
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples samples279.tsv -o recode.prune.reheadered.vcf recode.prune.vcf
+
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+seqConverter.pl -drecode.prune.reheadered.min4.phy -on
+
+#Corrected for ascertainment bias
+~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+
+#Now remove missing??
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
+seqConverter.pl -dfiltered.phy -on
+```
+
+recode.prune.reheadered.min4.nex being converted to SVDQuartets file.
+
+(base) Macs-MacBook-Pro-2:300 mac$ grep -v "#" recode.vcf  | wc -l
+    7055
+(base) Macs-MacBook-Pro-2:300 mac$ grep -v "#" recode.prune.vcf  | wc -l
+    4922
+
+As nexus, recode.prune.reheadered.min4.asc.phy Data matrix has 278 taxa, 4922 characters
+
+Sample sizes
+```{r}
+taxparts<-read_delim("outputs/300/mytaxparts.delim", delim = ":", col_names=c("Tip","Samples")) %>%  mutate(N=str_count(Samples, "\t"))
+```
+
+
+```{r}
+sp<-read.nexus("outputs/300/svdq-suckers.asc.tre")
+sp<-root(sp, c("Truckee_River__NV_Mountain_Sucker","Poore_Creek__CA_Mountain_Sucker"))
+#sp<-as.polytomy(sp, feature='node.label', fun=function(x) as.numeric(x) < 50)
+v<-ggtree(sp, branch.length = "none") %<+% taxparts +
+   xlim(0,25)
+
+v
+```
+
+
+Sample sizes....
+```{r}
+v +
+  geom_tiplab(offset = 1) +
+  geom_tippoint(aes(size=N, x=x+0.4), alpha=0.75, pch=21, fill="black") +
+  geom_nodelab() 
+
+ggsave("outputs/300/278-species-tree.pdf")
+```
+
+
+I think the Mountain sucker is so distant, that dropping it is a reasonable thing to do.
+
+##Concat     
+
+```{sh, eval=FALSE}
+iqtree -s filtered.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+iqtree -s filtered.phy.varsites.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
 ```
