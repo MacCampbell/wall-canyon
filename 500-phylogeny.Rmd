@@ -1,0 +1,61 @@
+---
+title: "500-phylogeny"
+author: "Mac Campbell"
+date: "4/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggtree)
+library(ape)
+```
+
+## Signal in Bagley et al?
+
+Made a 33 taxon alignment.
+
+```{sh,eval=FALSE}
+iqtree -s test.phylip -p test -st DNA -m GTR+G -B 1000  -redo
+```
+
+Three partitions:
+1	DNA	33	2836	690	1928	GTR	mtDNA
+2	DNA	33	839	32	778	GTR	IRBP
+3	DNA	13	2250	42	2143	GTR	GHI_RPS7
+
+
+```{r}
+t<-read.tree("outputs/500/test.phylip.contree")
+t<-root(t, c("C_platyrhyn_BYU58618","P_clarkii_MSB49600","P_santa_UAIC12384_01","P_disco_yar_UAIC12776_01_2",
+  "P_discobolus_BYU57986","C_plebius_DAN0521_10","P_nebuliferus"))
+t<-ggtree(t)
+
+t$data$Bootstrap<-as.numeric(t$data$label)
+
+d <- t$data
+d <- d[!d$isTip,]
+d$label <- as.numeric(d$label)
+d <- d[d$label > 90,]
+
+e <- t$data
+e <- e[!e$isTip,]
+e$label <- as.numeric(e$label)
+e <- e[e$label < 90,]
+e <- e[e$label > 75,]
+
+t  +
+  geom_point(data=e,  color="gray50", cex=5, alpha=0.75, pch=18) +
+  geom_point(data=d,  color="black", cex=5, alpha=0.75, pch=18) +
+  geom_tiplab(offset=0.1, align=TRUE, size=3) +
+#  geom_nodelab() +
+  xlim(0,.5)
+
+ggsave("outputs/500/test.pdf")
+```
+
+Considering making this a timetree....
