@@ -144,3 +144,19 @@ write_tsv(b6, "outputs/200/b6.tsv")
 write_tsv(select(b6, NewPath), file="bamlists/test279.bamlist", col_names = FALSE)
 ```
 
+## Pull out WOW group
+
+Not using the most stringent read counts
+```{r}
+wow<-mmeta %>% filter(`Species Common Name` %in% c("Wall Canyon Sucker","Owens Sucker","Warner Sucker")) %>% filter(Counts > .9e5) %>% mutate(NewPath = ifelse(Counts > 1.5e6, paste0("data/reduced/",`Sample ID`,"_RA.reduced.bam"), Path))
+
+wow %>% group_by(`Scientific Name`,Subspecies ) %>% summarize(Count=n())
+
+#108 inds
+
+write_tsv(wow, "outputs/700/wow.tsv")
+
+
+write_tsv(select(wow, NewPath), file="bamlists/wow.bamlist", col_names = FALSE)
+```
+ 

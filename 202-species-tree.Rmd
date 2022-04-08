@@ -136,7 +136,7 @@ ggsave("outputs/202/k3.jpg")
 #  theme(axis.text.x=element_text(angle=45)) +
   facet_grid(`Species Common Name`~Location)
 
-ggsave("outputs/202/k3-facet.jpg", width=16, height=12)
+ggsave("outputs/202/k3-facet.jpg", width=8, height=6)
 
 ```
 

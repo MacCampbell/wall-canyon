@@ -1,0 +1,107 @@
+---
+title: "600-mtDNA"
+author: "Mac Campbell"
+date: "4/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ape)
+library(pegas)
+library(reshape2)
+```
+
+```{r}
+Naso<-read.dna(file="outputs/600/wow-renamed.afasta", format="fasta")
+
+Naso
+
+NasoHaps <- haplotype(Naso)
+NasoHaps
+
+NasoNet <- haploNet(NasoHaps)
+plot(NasoNet, size=attr(NasoNet,"freq"), fast=FALSE)
+```
+
+
+```{r}
+ind.hap<-with(
+  utils::stack(setNames(attr(NasoHaps, "index"), rownames(NasoHaps))),
+  table(hap=ind, individuals=rownames(Naso)[values])
+ )
+ind.hap
+```
+
+```{r}
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE)
+
+legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=2:5)
+```
+
+## Compute average pairwise distances
+
+By default uses k2p
+
+```{r}
+m<-dist.dna(Naso, as.matrix = TRUE)
+```
+
+```{r}
+sample<-m
+ df <- na.omit(melt(sample))  # reshaping
+ df <- df[order(df$Var1), ]   # ordering
+ colnames(df) <- c("col", "row", "value") 
+ df<-as_tibble(df)
+```
+
+
+Average pairwsie, the way it is calcuated self-self measurements are in, so omitting them for this test case by removing 0
+
+```{r}
+df %>% filter(value != 0) %>% group_by(col, row) %>% mutate(meanK2p=mean(value)) %>% select(meanK2p) %>% mutate(Dist=100*(round(meanK2p, 3))) %>% unique()
+```
+
+## COI? Doesn't exist for Wall Canyon, found ND2
+
+
+```{r}
+Naso<-read.dna(file="outputs/600/wow-nd2.afasta", format="fasta")
+
+Naso
+
+NasoHaps <- haplotype(Naso)
+NasoHaps
+
+NasoNet <- haploNet(NasoHaps)
+plot(NasoNet, size=attr(NasoNet,"freq"), fast=FALSE)
+
+ind.hap<-with(
+  utils::stack(setNames(attr(NasoHaps, "index"), rownames(NasoHaps))),
+  table(hap=ind, individuals=rownames(Naso)[values])
+ )
+ind.hap
+```
+
+```{r}
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE,   bg = c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+
+legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+```
+
+```{r}
+m<-dist.dna(Naso, as.matrix = TRUE)
+sample<-m
+ df <- na.omit(melt(sample))  # reshaping
+ df <- df[order(df$Var1), ]   # ordering
+ colnames(df) <- c("col", "row", "value") 
+ df<-as_tibble(df)
+#Removing self comparisons
+ df %>% filter(value != 0) %>% group_by(col, row) %>% mutate(meanK2p=mean(value)) %>% select(meanK2p) %>% mutate(Dist=100*(round(meanK2p, 3))) %>% unique()
+```
+
+ 
