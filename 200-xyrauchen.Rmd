@@ -110,6 +110,11 @@ samtools view -bs $frac input.bam > subsample.bam
 
 ## Set up to downsample all species
 ```{r}
+
+b3b<-b3 %>% mutate(NewPath = ifelse(Counts > 1.5e6, paste0("data/reduced/",`Sample ID`,"_RA.reduced.bam"), Path))
+
+write_tsv(b3b, "meta/b3b.tsv")
+
 b4<-b3 %>% filter(Counts > 2e5) %>% mutate(NewPath = ifelse(Counts > 1.5e6, paste0("data/reduced/",`Sample ID`,"_RA.reduced.bam"), Path))
 b4 %>% group_by(`Scientific Name`) %>% summarize(Count=n())
 

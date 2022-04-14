@@ -1,0 +1,26 @@
+---
+title: "800-klamath-sacremento"
+author: "Mac Campbell"
+date: "4/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
+```
+
+## Samples sequenced
+
+ `Common Name`     Subspecies    Coordinates                Count      
+  <chr>             <chr>         <chr>                      <int>    
+1 Modoc Sucker      NA            Ash Creek: Johnson            10     
+2 Modoc Sucker      NA            Turner Creek: Garden Gulch    10     
+3 Sacremento Sucker lacuanserinus Cottonwood                     9     
+4 Sacremento Sucker lacuanserinus Goose Lake: Dent               5    
+5 Sacremento Sucker occidentalis  Ash Creek: Ash Valley         13    
+
+q's: Are all Sacramento Suckes most-closely related to each other?  Are Thomas Creek in Goose Lake Basin is the third location of Modoc that exists and we don't have it. But, we can see if Cottonwood/Dent are more closely related to Ash (but expecting hybrids)
+
+
+
+

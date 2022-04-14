@@ -1,0 +1,114 @@
+---
+title: "401-wow"
+author: "Mac Campbell"
+date: "4/8/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(maps)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(ggrepel)
+library(viridis)
+library(ggsn)
+```
+
+## Zoom in on Warner and Wall Canyon
+
+```{r}
+colls<-read_csv("meta/additional-meta.csv") %>% filter(`Common Name` %in% c("Wall Canyon Sucker","Warner Sucker")) %>%
+   separate(Coordinates, into=c("Latitude1","Longitude1"), sep=" ") %>% dplyr::select(`Common Name`, `Source Location`,Latitude1,Longitude1) %>%
+  mutate(Latitude=ifelse(`Common Name`=="Wall Canyon Sucker",41.18004547, Latitude1 )) %>%
+  mutate(Longitude=ifelse(`Common Name`=="Wall Canyon Sucker",-119.8003539, Longitude1 )) %>%
+  group_by(`Common Name`,`Source Location`,Latitude, Longitude) %>% summarize(SampleSize=n())
+
+colls$Latitude<-as.numeric(colls$Latitude)
+colls$Longitude<-as.numeric(colls$Longitude)
+```
+
+
+Current Genetic Data: 
+
+  `Scientific Name`       Subspecies Count
+  <chr>                   <chr>      <int>
+1 Catostomus fumeiventris NA            44
+2 Catostomus new species  NA            27
+3 Catostomus warnerensis  NA            37
+
+```{r}
+owens<-read_csv("meta/2021_July_OSKR_fin_clips.csv") %>% filter(`Vial #` != 41) %>% dplyr::select(`Source water`, Latitude, Longitude) %>%
+  group_by(`Source water`,Latitude, Longitude) %>% summarize(SampleSize=n()) %>% mutate(`Common Name`="Owens Sucker") %>%
+  rename(`Source Location`=`Source water`)
+```
+
+```{r}
+sites<-bind_rows(colls,owens)
+
+samples<-ggplot(sites, aes(x=Longitude, y=Latitude, fill=`Common Name`)) +
+  geom_point(pch=21, alpha=0.75, aes(size=SampleSize)) +
+  scale_fill_manual(values=c("red","black","blue")) +
+  coord_fixed(ratio=1.3) +
+  theme_bw()
+
+samples
+```
+
+
+```{r}
+avg<-sites %>% group_by(`Common Name`, `Source Location`) %>% mutate(Samples=sum(SampleSize), newlat=mean(Latitude), newlong=mean(Longitude)) %>%
+  dplyr::select(`Common Name`, `Source Location`, Samples, newlat, newlong) %>% unique()
+avg$`Source Location`<-gsub(", OR","",avg$`Source Location`)
+avg$`Source Location`<-gsub(", NV","",avg$`Source Location`)
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data=avg, aes(x=newlong, y=newlat, fill=`Source Location`, size=Samples), pch=21) +
+  geom_text_repel(data=avg, aes(x=newlong, y=newlat, label=paste0(`Source Location`, " n=",Samples))) +
+  scale_fill_viridis_d(option="turbo") +
+  theme(legend.position = "none") 
+  
+```
+
+
+## Get Map and plot
+
+```{r}
+load("outputs/400/rast.table.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/warner.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/owens.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/wall.rda")
+
+```
+
+```{r}
+ggplot() + 
+  geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_polygon(data=owensdf,aes(x=long, y=lat, group=group), fill="red", alpha=0.5) +
+  geom_polygon(data=warnerdf,aes(x=long, y=lat, group=group), fill="blue", alpha=0.5) +
+  geom_polygon(data=walldf,aes(x=long, y=lat, group=group), fill="black", alpha=1.0) +
+  geom_point(data=avg, aes(x=newlong, y=newlat, fill=`Source Location`, size=Samples), pch=21) +
+  geom_text_repel(data=avg, aes(x=newlong, y=newlat, label=paste0(`Source Location`, " n=",Samples))) +
+  scale_fill_viridis_d(option="turbo") +
+  theme_bw() +
+  theme(panel.grid=element_blank())+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  theme(legend.position = "none") +
+  coord_fixed(1.3, xlim=c(-122.5, -117.5), ylim=c(37,43))
+
+ggsave("outputs/401/wow-sampling.pdf", width=8, height=8)
+```
+
+
+

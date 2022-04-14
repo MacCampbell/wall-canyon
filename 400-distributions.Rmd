@@ -57,6 +57,7 @@ rast.table$rgb <- with(rast.table, rgb(NE2_HR_LC_SR_W_DR.1,
                                        NE2_HR_LC_SR_W_DR.3,
                                        1))
 
+save(rast.table, file="outputs/400/rast.table.rda")
 ```
 
 ```{r}
@@ -77,34 +78,56 @@ May need to get Wall Canyon poly separately?
 Owens Sucker, Warner Sucker
 
 ```{r, eval=FALSE}
-owens<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Owens sucker (Catostomus fumeiventris) distribution and status by HUC8/data/commondata/data0/Catostomus_fumeiventris.shp","Catostomus_fumeiventris")
-owensWGS <- spTransform(owens, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
-owensdf<-fortify(owensWGS)
+#owens<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Owens sucker (Catostomus fumeiventris) distribution and status by HUC8/data/commondata/data0/Catostomus_fumeiventris.shp","Catostomus_fumeiventris")
+#owensWGS <- spTransform(owens, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+#owensdf<-fortify(owensWGS)
 
-warner<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Warner sucker (Catostomus warnerensis) distribution and status by HUC8/data/commondata/data0/Catostomus_warnerensis.shp","Catostomus_warnerensis")
-warnerWGS <- spTransform(warner, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
-warnerdf<-fortify(warnerWGS)
+#warner<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Warner sucker (Catostomus warnerensis) distribution and status by HUC8/data/commondata/data0/Catostomus_warnerensis.shp","Catostomus_warnerensis")
+#warnerWGS <- spTransform(warner, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+#warnerdf<-fortify(warnerWGS)
 
-sac<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Sacramento sucker (Catostomus occidentalis) distribution and status by HUC8/data/commondata/data0/Catostomus_occidentalis.shp","Catostomus_occidentalis")
+#sac<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Sacramento sucker (Catostomus occidentalis) distribution and status by HUC8/data/commondata/data0/Catostomus_occidentalis.shp","Catostomus_occidentalis")
+
+#https://databasin.org/datasets/c39ac7af155544308a4905569d2fbc99/
+sac<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Sacramento sucker (Catostomus occidentalis) distribution in California as of 2002/data/commondata/data0/ssk.shp","ssk")
 sacWGS <- spTransform(sac, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 sacdf<-fortify(sacWGS)
 
-modoc<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Modoc sucker (Catostomus microps) distribution and status by HUC8/data/commondata/data0/Catostomus_microps.shp","Catostomus_microps")
+#modoc<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Modoc sucker (Catostomus microps) distribution and status by HUC8/data/commondata/data0/Catostomus_microps.shp","Catostomus_microps")
+#modocWGS <- spTransform(modoc, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+#modocdf<-fortify(modocWGS)
+
+#Modoc is found in Thomas Creek Goose Lake Basin, Ash and Turner Creeks.  Can get Ash and Turner going here
+modoc<-readOGR("/Users/mac/github/wall-canyon/outputs/400/modoc/Catostomus_microps_CCM01_historical_expert_16.shp","Catostomus_microps_CCM01_historical_expert_16")
 modocWGS <- spTransform(modoc, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 modocdf<-fortify(modocWGS)
 
-tahoe<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Tahoe sucker (Catostomus tahoensis) distribution and status by HUC8/data/commondata/data0/Catostomus_tahoensis.shp","Catostomus_tahoensis")
-tahoeWGS <- spTransform(tahoe, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
-tahoedf<-fortify(tahoeWGS)
 
-save(warnerdf, file="outputs/400/warner.rda")
-save(owensdf, file="outputs/400/owens.rda")
+
+tahoe<-readOGR("/Users/mac/github/wall-canyon/outputs/400/Tahoe sucker (Catostomus tahoensis) distribution and status by HUC8/data/commondata/data0/Catostomus_tahoensis.shp","Catostomus_tahoensis")
+
+#https://nas.er.usgs.gov/queries/FactSheet.aspx?speciesID=355
+#non-indigenous East Branch North Fork Feather; Lower Sacramento; Middle Fork Feather; North Fork American; North Fork Feather; Upper Pit; Upper Yuba
+tahoeWGS <- spTransform(tahoe, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+tahoeNative<-tahoeWGS[! tahoeWGS@data$HUC_NAME %in% c("Lower Pit","North Fork American","South Fork American", "East Branch North Fork Feather",
+                                                      "North Fork Feather","Middle Fork Feather"),]
+tahoedf<-fortify(tahoeNative)
+
+
+#save(warnerdf, file="outputs/400/warner.rda")
+#save(owensdf, file="outputs/400/owens.rda")
 save(sacdf, file="outputs/400/sac.rda")
 save(modocdf, file="outputs/400/modoc.rda")
 save(tahoedf, file="outputs/400/tahoe.rda")
 ```
 
-
+```{r, eval=FALSE}
+warner<-readOGR("/Users/mac/github/mccloud-rrt/outputs/1000/huc250k_shp/","huc250k")
+warner <- spTransform(warner, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+warner <- warner[warner@data$HUC_CODE=="17120007",]
+warnerdf <- fortify(warner)
+save(warnerdf, file="outputs/400/warner.rda")
+```
 
 ## Wall Creek
 
@@ -134,6 +157,17 @@ ggplot() +geom_polygon(data=walldf,aes(x=long, y=lat, group=group), fill="black"
     coord_fixed(ratio=1.3)
 ```
 
+## More refined Owens Sucker
+Pisces data base    
+```{r, eval=FALSE}
+owens<-readOGR("/Users/mac/github/wall-canyon/outputs/400/owens/Catostomus_fumeiventris_CCF01_historical_expert_16.shp",
+               "Catostomus_fumeiventris_CCF01_historical_expert_16")
+owens <- spTransform(owens, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+owensdf<-fortify(owens)
+save(owensdf, file="outputs/400/owens.rda")
+```
+    
+
 Klamath Suckers    
 
 ```{r, eval=FALSE}
@@ -160,10 +194,6 @@ save(smalldf, file="outputs/400/small.rda")
 
 ```
 
-```
-
-
-```
 
 
 ## All together
@@ -180,9 +210,12 @@ load("/Users/mac/github/wall-canyon/outputs/400/short.rda")
 load("/Users/mac/github/wall-canyon/outputs/400/large.rda")
 load("/Users/mac/github/wall-canyon/outputs/400/small.rda")
 
+load("/Users/mac/github/wall-canyon/outputs/401/goosedf.rda")
+load("/Users/mac/github/wall-canyon/outputs/401/modocdf2.rda")
 
 map<-ggplot() + 
   geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_polygon(data=sacdf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
   geom_polygon(data=lostdf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
   geom_polygon(data=shortdf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
   geom_polygon(data=largedf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
@@ -190,8 +223,9 @@ map<-ggplot() +
   geom_polygon(data=tahoedf,aes(x=long, y=lat, group=group), fill="brown", alpha=0.5) +
   geom_polygon(data=owensdf,aes(x=long, y=lat, group=group), fill="red", alpha=0.5) +
   geom_polygon(data=warnerdf,aes(x=long, y=lat, group=group), fill="blue", alpha=0.5) +
-  geom_polygon(data=sacdf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
-  geom_polygon(data=modocdf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.5) +
+  geom_polygon(data=goosedf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
+  geom_polygon(data=modocdf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  geom_polygon(data=modocdf2,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
   geom_polygon(data=walldf,aes(x=long, y=lat, group=group), fill="black", alpha=1.0) +
   coord_fixed(ratio=1.3) +
   theme_bw() +
@@ -201,6 +235,7 @@ map<-ggplot() +
 
 map
 ggsave("/Users/mac/github/wall-canyon/outputs/400/starting-map.pdf")
+save(map, file="outputs/400/map.rda")
 ```
 
 ## Points
@@ -219,14 +254,14 @@ legend<-tibble(z,x,y,a)
 ```{r}
 legend$z<-as.factor(legend$z)
 leg<-ggplot(legend) +
-  geom_point(aes(x=x, y=y), fill=a, pch=21, size=8) +
+  geom_point(aes(x=x, y=y), fill=a, pch=21, size=8, alpha=c(0.5,0.5,0.5,0.5,0.5,0.75,1)) +
   geom_text(aes(x=x+.25, y=y, label=z), size=5) +
   xlim(0.95,1.4) +
   ylim(-0,8) +
   scale_fill_manual(values=legend$a) +
   theme_bw() +
   theme(legend.position = "none") +
-  theme(panel.grid = element_blank(), axis.ticks = element_blank(), axis.text = element_blank(), axis.title = element_blank())
+  theme(panel.grid = element_blank(), axis.ticks = element_blank(), axis.text = element_blank(), axis.title = element_blank()) 
 
 leg
 ```

@@ -22,24 +22,33 @@ library(adegenet)
 library(ape)
 library(phangorn)
 library(ggrepel)
+library(vcfR)
+library(hierfstat)
 ```
 
 ## Looking at basic analyses of WOW
 
 
 ```{sh, eval=FALSE}
-srun -p med -t 12:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/wow.bamlist \
+srun -p bigmemh -t 24:00:00 --mem=32G --nodes=2 $HOME/angsd/angsd -P 24  -bam bamlists/wow.bamlist \
 -minInd 97 -GL 1 -ref $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -doGLF 2 -doMajorMinor 1 -doMaf 2 -SNP_pval 1e-6 -minMapQ 10 -minQ 20 -minMaf 0.05 \
 -out outputs/700/wow > outputs/700/wow-beagle.out 2> outputs/700/wow-beagle.err &
 
 python $HOME/pcangsd/pcangsd.py -beagle outputs/700/wow.beagle.gz -o outputs/700/wow-pca -threads 10
+
 ```
 
+Read 108 samples and 153443 sites
+
+Estimating population allele frequencies
+EM (MAF) converged at iteration: 7
+
+Number of sites after MAF filtering (0.05): 153443
 
 Generate some SNPs, 95% missing
 ```{sh, eval=FALSE}
-srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
+srun -p bigmemh -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
 -bam bamlists/wow.bamlist \
 -out /home/maccamp/wall-canyon/outputs/700/plink \
 -anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
@@ -49,10 +58,602 @@ srun -p med -t 24:00:00 --mem=16G --nodes=1 --ntasks=6 angsd -P 12 \
 
 
 ## PCA?
+```{r}
+meta<-read_tsv("outputs/700/wow.tsv")
+```
+```{r}
+cov<-read_delim("outputs/700/wow-pca.cov", col_names=FALSE, delim=" ") %>% as.matrix()
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Some shameless copying from Eric A.
+#' @param samples character vector with the individuals IDs in the order in which
+#' they were passed in the bamlist to angsd.
+#' @param cov covariance matrix
+covar2pcs <- function(samples, cov) {
+  
+  
+  eig <- eigen(cov, symm = TRUE)
+  PC <- as.data.frame(eig$vectors) %>%
+    as_tibble() %>%
+    setNames(sprintf("PC-%02d", 1:ncol(.)))
+  
+  samtib <- tibble(sample = samples)
+  
+  list(
+    PCs = bind_cols(samtib, PC),
+    eigevalues = eig$values
+  )
+}
+```
+
+```{r}
+pca <- covar2pcs(meta$`Sample ID`, cov)
+
+pca_long <- pca$PCs %>%
+  tidyr::gather(., key = "PC", "val", -sample)
+
+# then expand a grid of the possible comparisons (ordered)
+expg <- expand.grid(sample = pca$PCs$sample,
+                    PCx = sprintf("PC-%02d", 1:6),
+                    PCy = sprintf("PC-%02d", 1:6),
+                    stringsAsFactors = FALSE) %>%
+  tibble::as_tibble()
+
+# then left join the pca results onto that
+pca_pairs <- dplyr::left_join(expg, pca_long, by = c("sample", "PCx" = "PC")) %>%
+  dplyr::rename(val_x = val) %>%
+  dplyr::left_join(pca_long, by = c("sample", "PCy" = "PC")) %>%
+  dplyr::rename(val_y = val)
+
+pp_meta <- pca_pairs %>%   # just keep the first 6 PCs around
+  left_join(., meta, by = c("sample" = "Sample ID"))
+
+# now, that has the first 6 PCs in it.  If we want to focus on the just the
+# first 3, we could do 
+npc <- 4
+pp_meta2 <- pp_meta %>%
+  filter( (PCx %in% sprintf("PC-%02d", 1:npc)) & 
+            (PCy %in% sprintf("PC-%02d", 1:npc)) )
+
+ggplot(pp_meta2, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(pch = 21, size = 2) +
+  scale_fill_discrete(na.value = "white") + 
+  facet_grid(PCy ~ PCx, scales = "free")
+```
+
+```{r}
+eig <- eigen(cov, symm = TRUE)
+var<-eig$values/sum(eig$values)
+cumvar<-cumsum(eig$values)/sum(eig$values)
+
+head(var)
+head(cumvar)
+```
+
+
+```{r}
+sub12<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-02") )
+centers12<- sub12 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique()
+pc12<-ggplot(sub12, aes(x = val_x, y = val_y, fill = `Species Common Name`)) +
+  geom_point(size = 3, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers12, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC2", " ", round((100*var[2]),2), "%", sep = ""))+
+  scale_fill_manual(values=alpha(c("red","black","blue"),0.75)) +
+#  scale_shape_manual("Major Group", values = c(21,22,23,24,25)) +
+  theme(legend.position = "")+
+  ggtitle("A") +
+  theme(plot.title = element_text(face="bold", size=16))
+
+pc12
+```
+
+```{r}
+sub13<-pp_meta2 %>% filter( (PCx =="PC-01") & (PCy =="PC-03") )
+centers13<- sub13 %>% group_by(`Species Common Name`) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(`Species Common Name`, meanX, meanY) %>% unique() %>% filter(`Species Common Name` != "Owens Sucker")
+locs13<-sub13 %>% group_by(`Species Common Name`, Location) %>% mutate(meanX=mean(val_x), meanY=mean(val_y)) %>% select(Location, meanX, meanY) %>% unique() %>% filter(`Species Common Name` == "Owens Sucker")
+
+locs13$Location<-gsub(", Bishop, CA|  Bishop, CA|, Bishop,CA","",locs13$Location)
+
+pc13<-ggplot(sub13, aes(x = val_x, y = val_y, fill=`Species Common Name`)) +
+  geom_point(size = 3, alpha=0.75, pch=21) +
+  geom_text_repel(data=centers13, aes(x=meanX, y=meanY, label=`Species Common Name`), max.overlaps = Inf) +
+  geom_text_repel(data=locs13, aes(x=meanX, y=meanY, label=Location), max.overlaps = Inf) +
+  scale_fill_discrete(na.value = "white") + 
+  theme_bw()+
+  theme(panel.grid=element_blank())+
+  xlab(paste("PC1", " ", round((100*var[1]),2), "%", sep = ""))+
+  ylab(paste("PC3", " ", round((100*var[3]),2), "%", sep = ""))+
+  scale_fill_manual(values=alpha(c("red","black","blue"),0.75)) +
+ # scale_shape_manual("Species Common Name", values = c(21,22,23,24,25)) +
+ # guides(fill = guide_legend(override.aes=list(shape=15, color= viridis(12, option="magma")))) +
+  ggtitle("B") +
+  theme(plot.title = element_text(face="bold", size=16))
+pc13
+```
+
+```{r}
+pcs<-ggarrange(pc12, pc13, ncol = 2, widths=c(1.1, 1.6))
+pcs
+ggsave("outputs/700/wow-pcs.pdf", width=10, height=5)
+```
 
 ## Admixture
+```{sh, eval=FALSE}
+$HOME/angsd/misc/NGSadmix  -likes outputs/700/wow.beagle.gz -K 2 -o outputs/700/wow-k2 -P 3
+$HOME/angsd/misc/NGSadmix  -likes outputs/700/wow.beagle.gz -K 3 -o outputs/700/wow-k3 -P 3
+$HOME/angsd/misc/NGSadmix  -likes outputs/700/wow.beagle.gz -K 4 -o outputs/700/wow-k4 -P 3
+$HOME/angsd/misc/NGSadmix  -likes outputs/700/wow.beagle.gz -K 5 -o outputs/700/wow-k5 -P 3
+$HOME/angsd/misc/NGSadmix  -likes outputs/700/wow.beagle.gz -K 6 -o outputs/700/wow-k6 -P 3
+```
+
+
+Setting up colors
+
+```{r}
+cols<-viridis(6, option = "turbo", alpha = 0.75)
+ggplot()+geom_point(aes(x=c(1,2,3,4,5,6), y=c(1,1,1,1,1,1)), col=cols, cex=5)
+```
+Plotting qopt:    
+
+Altering meta
+```{r}
+meta$Location<-gsub(", Bishop, CA|  Bishop, CA|, Bishop,CA|,  Bishop, CA","",meta$Location)
+meta$Location<-gsub(", NV|, OR","",meta$Location)
+
+#Set species order
+meta$`Species Common Name`<-factor(meta$`Species Common Name`, levels=c("Wall Canyon Sucker","Warner Sucker","Owens Sucker"))
+
+#Set Location order
+meta$Location<-factor(meta$Location, levels=c("Wall Canyon","Honey Creek", "Twentymile Creek","Deep Creek",
+                                              "Lower Hot Creek","Lower Rock Creek","Lower Horton Creek","Horton Creek", "South Fork"))
+```
+```{r}
+q2<-read_delim("outputs/700/wow-k2.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2) %>%
+  rename(Q1=X1, Q2=X2)
+
+df2<-bind_cols(q2, meta)            
+
+q2s<-df2 %>% select(`Species Common Name`, Location, Q1, Q2) %>% arrange(`Species Common Name`,Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 3:4) %>% mutate(K=2)
+
+pops2<-q2s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(Location,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+```{r}
+p2 <- ggplot(q2s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops2$Stop[length(pops2$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  scale_fill_manual(values=c(cols[2], cols[5])) +
+  theme(legend.position = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  ggtitle("K = 2") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+p2
+```
+
+```{r}
+q3<-read_delim("outputs/700/wow-k3.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2, X3) %>%
+  rename(Q1=X1, Q2=X2, Q3=X3)
+
+df3<-bind_cols(q3, meta)            
+
+q3s<-df3 %>% select(`Species Common Name`, Location, Q1, Q2, Q3) %>% arrange(`Species Common Name`,Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 3:5) %>% mutate(K=3)
+
+pops3<-q3s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(Location,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+```{r}
+p3 <- ggplot(q3s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops3$Stop[length(pops3$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  scale_fill_manual(values=c(cols[2], cols[3], cols[5])) +
+  theme(legend.position = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  ggtitle("K = 3") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+p3
+```
+
+```{r}
+q4<-read_delim("outputs/700/wow-k4.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2, X3, X4) %>%
+  rename(Q1=X1, Q2=X2, Q3=X3, Q4=X4)
+
+df4<-bind_cols(q4, meta)            
+
+q4s<-df4 %>% select(`Species Common Name`, Location, Q1, Q2, Q3, Q4) %>% arrange(`Species Common Name`,Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 3:6) %>% mutate(K=4)
+
+pops4<-q4s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(Location,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+```{r}
+p4 <- ggplot(q4s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops4$Stop[length(pops4$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  scale_fill_manual(values=c(cols[2], cols[5], cols[4], cols[3])) +
+  theme(legend.position = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  ggtitle("K = 4") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+p4
+```
+
+
+```{r}
+q5<-read_delim("outputs/700/wow-k5.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2, X3, X4, X5) %>%
+  rename(Q1=X1, Q2=X2, Q3=X3, Q4=X4, Q5=X5)
+
+df5<-bind_cols(q5, meta)            
+
+q5s<-df5 %>% select(`Species Common Name`, Location, Q1, Q2, Q3, Q4, Q5) %>% arrange(`Species Common Name`,Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 3:7) %>% mutate(K=5)
+
+pops5<-q5s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(Location,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+```{r}
+p5 <- ggplot(q5s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops5$Stop[length(pops5$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  scale_fill_manual(values=c(cols[1], cols[3], cols[5], cols[2], cols[4])) +
+  theme(legend.position = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  ggtitle("K = 5") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+  scale_x_continuous(breaks=pops5$Position, labels=pops5$Location) +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) 
+
+  
+p5
+```
+
+
+```{r}
+q6<-read_delim("outputs/700/wow-k6.qopt", delim=" ", col_names=FALSE) %>% select(X1, X2, X3, X4, X5, X6) %>%
+  rename(Q1=X1, Q2=X2, Q3=X3, Q4=X4, Q5=X5, Q6=X6)
+
+df6<-bind_cols(q6, meta)            
+
+q6s<-df6 %>% select(`Species Common Name`, Location, Q1, Q2, Q3, Q4, Q5, Q=6) %>% arrange(`Species Common Name`,Location) %>%
+  mutate(Index=1:n()) %>% gather(key=Ancestry, value=Q, 3:8) %>% mutate(K=6)
+
+pops6<-q6s  %>% group_by(`Species Common Name`, Location) %>% mutate(Start=min(Index), Stop=max(Index)) %>% 
+  select(Location,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2)) %>% ungroup() %>% unique()
+```
+
+```{r}
+p6 <- ggplot(q6s) + 
+  geom_col(aes(x=Index,y=Q, fill=Ancestry), color="NA", size = 0, width = 1) +
+  geom_segment(data=pops2, x = pops2$Start - 0.5, y=0, xend = pops2$Start-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=pops2, x = pops2$Stop[length(pops2$Stop)]  + 0.5, y=0, xend= pops2$Stop[length(pops2$Stop)] + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0.5, xend= pops2$Stop[length(pops2$Stop)]+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  ylim(-0.1,1.01) +
+  xlim(-0.1, pops6$Stop[length(pops6$Stop)]+1) +
+  theme(panel.background = element_blank()) +
+  xlab("") +
+  scale_fill_manual(values=c(cols[1], cols[3], cols[5], cols[2], cols[4], cols[6])) +
+  theme(legend.position = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  ggtitle("K = 6") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+p6
+```
+
+
+```{r}
+ggarrange(p2,
+          p3,
+          p4,
+          p5,
+          ncol=1, heights=c(1,1,1,1.5))
+
+ggsave("outputs/700/wow-ks.jpg", height=8, width = 8)
+```
 
 ## DAPC
 
+Convert plink to vcf
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out plink-binary --recode --allow-extra-chr --noweb
+plink --ped plink-binary.ped --map plink-binary.map --recode vcf --allow-extra-chr -out plink
+```
+
+22,201 variants.
+
+```{r, eval=FALSE}
+vcf<-read.vcfR(file="outputs/700/plink.vcf")
+genind<-vcfR2genind(vcf)
+genind@pop<-meta$Location
+save(genind, file="outputs/700/plink-genind.rda")
+```
+
+```{r}
+load("outputs/700/plink-genind.rada")
+```
+
+Sanity check of signal:    
+
+```{r}
+gen<-genind
+X <- tab(gen, NA.method="mean")
+
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+
+
+
+```{r}
+grp<-find.clusters(gen, n.pca=95, n.clust = 4)
+table(pop(gen), grp$grp)
+```
+
+Getting kstat
+```{r, eval=FALSE}
+g4<-find.clusters(gen,n.pca=95)
+kstat<-g4$Kstat
+save(kstat, file="outputs/700/kstat.rda")
+```
+
+```{r}
+dapc<-dapc(gen,pop = grp$grp, n.pca=95, n.da=3)
+```
+
+```{r}
+scatter(dapc)
+```
+
+Plot structure-like   
+
+##Plot structure-like
+```{r}
+post<-as_tibble(dapc$posterior)
+post$Location<-gen@pop
+post$`Species Common Name`=meta$`Species Common Name`
+post<-post %>% arrange(`Species Common Name`, Location) %>% mutate(Position=1:n()) %>% group_by(Location) %>% mutate(Individual=1:n())
+untidy<-post
+post<-post %>% gather(key=Group, value=Posterior, 1:4) 
+post
+```
+
+```{r}
+ggplot(post) + 
+  geom_col(aes(x=Position, y=Posterior, fill=Group)) 
+
+```
+
+```{r}
+
+labels<-untidy %>% group_by(Location) %>% mutate(xbar=mean(Position), minx=min(Position), maxx=max(Position)) %>% select(Location,xbar, minx, maxx) %>% unique()
+
+k4<-ggplot(post) + 
+  geom_col(aes(x=Position, y=Posterior, fill=Group), color="NA", size = 0, width = 1) +
+  geom_segment(data=labels, x = labels$minx - 0.5, y=0, xend = labels$minx-0.5, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(data=labels, x = labels$maxx + 0.5, y=0, xend= labels$maxx + 0.5, yend=1,  alpha=0.9,
+               size=0.25) +
+  geom_segment(x=0+0.5, xend= max(labels$maxx)+0.5, y=1, yend=1, alpha=0.9, size=0.25) +
+  geom_segment(x=0+0.5, xend= max(labels$maxx)+0.5, y=0, yend=0, alpha=0.9, size=0.25) +
+  scale_x_continuous(breaks=labels$xbar, labels=labels$Location) +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  theme(axis.title.x = element_blank()) +
+  scale_fill_viridis_d(option="viridis", direction=-1) +
+  theme(panel.background = element_blank()) +
+  guides(fill=guide_legend(title="K = 4")) +
+ # theme(axis.ticks.x = element_blank(), axis.text.x = element_blank()) +
+  ylab("Posterior\n") +
+  theme(axis.title.y = element_text(size=16, face="bold"))
+k4
+
+ggsave("outputs/700/dapc-k4.jpg")
+```
+
+BIC Plot?
+
+```{r}
+load("outputs/700/kstat.rda")
+kdf<-kstat %>% as_tibble() %>% rename(BIC=value) %>% mutate(K=1:n())
+
+bic<-ggplot(kdf, aes(x=K, y=BIC)) +
+  geom_point() +
+  theme_bw() +
+  theme(axis.title = element_text(size=12, face="bold")) +
+  xlab("\nK") +
+  ylab("BIC\n") +
+  theme(panel.grid = element_blank())
+bic
+ggsave("outputs/700/dapc-k4-bic.jpg")
+```
+
 ## Fst
 
+None of the r functions really can handle this measurement. I can use VCFtools or ANGSD. Or try snpR
+
+```{r}
+library(snpR)
+```
+
+
+```{r}
+genos<-read_tsv("outputs/700/plink.geno.gz", col_names=FALSE)
+genos<-genos[1:ncol(genos)-1]
+
+genos$X1<-as.factor(genos$X1)
+
+# grab our sample metadata
+snp_meta <- genos[,1:2]
+sample_meta<-meta %>% select(`Species Common Name`,Location)  %>% rename(Species=`Species Common Name`)
+sample_meta$Location<-gsub(" ","",sample_meta$Location)
+sample_meta$Species<-gsub(" ","",sample_meta$Species)
+
+grouping<- grp$grp %>% as_tibble()
+sample_meta$Group<-grouping$value
+
+# import, remember to remove metadata from the genotypes!
+my.dat <- import.snpR.data(genos[,-c(1:2)], 
+                           snp.meta = snp_meta, 
+                           sample.meta = sample_meta)
+```
+
+```{r}
+x<-calc_pairwise_fst(my.dat, "Group")
+groupfst<-get.snpR.stats(x, "Group", "fst")
+#this is weighted means
+mg<-groupfst$fst.matrix$Group
+sample_meta %>% group_by(Species, Group) %>% summarize()
+as.tibble(mg)
+```
+
+```{r}
+y<-calc_pairwise_fst(my.dat, "Species")
+speciesfst<-get.snpR.stats(y, "Species", "fst")
+#this is weighted means
+speciesfst$fst.matrix$Species %>% as_tibble()
+```
+
+```{r}
+z<-calc_pairwise_fst(my.dat, "Location")
+locfst<-get.snpR.stats(z, "Location", "fst")
+#this is weighted means
+m<-locfst$fst.matrix$Location
+```
+
+```{r}
+
+makeSymmLower <- function(m) {
+   m[lower.tri(m)] <- t(m)[lower.tri(m)]
+   return(m)
+}
+```
+
+
+#This code doesn't work as there isn't a zero diagonal
+```{r}
+m2<-makeSymmLower(as.matrix(m)[,2:9])
+m2
+```
+
+```{r}
+md<- m2 %>% as_tibble() 
+mdd<-bind_cols(as_tibble(as.matrix(m[,1])), md)
+```
+
+```{r}
+md2<-mdd %>% pivot_longer(2:9) %>% rename(`Location 1`=p1, `Location 2`=name, Fst=value) 
+
+```
+
+```{r}
+md3<-md2 
+md3$Fst<-as.numeric(md3$Fst)
+
+#md3$`Location 1`<-factor(md3$`Location 1`, levels=c("HoneyCreek","TwentymileCreek","DeepCreek","LowerHotCreek","LowerRockCreek",
+ #                                                   "LowerHortonCreek","HortonCreek", "SouthFork"))
+#md3$`Location 2`<-factor(md3$`Location 2`, levels=c("WallCanyon","HoneyCreek","TwentymileCreek","LowerHotCreek","LowerRockCreek",
+ #                                                   "LowerHortonCreek","HortonCreek", "SouthFork"))
+```
+
+```{r}
+ggplot(md3) + 
+  geom_raster(aes(x=`Location 1`, y=`Location 2`, fill=Fst)) +
+  geom_text(aes(x=`Location 1`, y=`Location 2`, label=round(Fst,2)), color="white") +
+  theme(axis.text.x = element_text(angle=45, vjust=0.5))
+```
+
+```{r}
+mat_num <- matrix(as.numeric(m2),    # Convert to numeric matrix
+                  ncol = ncol(m2))
+#mat_num[mat_num<0]<-0
+colnames(mat_num)<-colnames(m2)
+rownames(mat_num)<-m[,1]$p1
+mat_num
+
+```
+
+
+```{r}
+library(gplots)
+```
+
+```{r}
+heatmap.2(mat_num, trace="none",
+          key=TRUE, srtCol=45, margins = c(5,5), col=viridis(15, direction=-1))
+```
+
+###  removing small sample sizes
+
+```{r}
+sample_meta %>% group_by(Location) %>% summarize(Count=n())
+```
+
+```{r}
+my.dat2<-my.dat[,my.dat@sample.meta$Location %in% c("DeepCreek","HoneyCreek","LowerHotCreek","LowerRockCreek","TwentymileCreek","WallCanyon")]
+```
+```{r}
+v<-my.dat2@sample.meta$Location
+my.dat3<-my.dat2
+my.dat3@sample.meta$Plot<-ifelse(v=="WallCanyon","A",ifelse(v=="HoneyCreek","B",ifelse(v=="TwentymileCreek","C",
+                         ifelse(v=="DeepCreek","D",ifelse(v=="LowerHotCreek","E",ifelse(v=="LowerRockCreek","F",NA))))))
+```
+
+
+
+```{r}
+a<-calc_pairwise_fst(my.dat3, "Plot")
+locfsta<-get.snpR.stats(a, "Plot", "fst")
+#this is weighted means
+ma<-locfsta$fst.matrix$Plot
+ma %>% as_tibble()
+```

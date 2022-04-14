@@ -1,0 +1,77 @@
+---
+title: "402-read-container"
+author: "Mac Campbell"
+date: "4/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(sf)
+library(raster)
+library(rgdal)
+library(tidyverse)
+```
+
+## Read Container
+
+```{r}
+or<-st_read("outputs/402/PNWHF Oregon Watershed Boundary Dataset HU12 Polygon/data/v101/wbd_or.gdb")
+```
+
+It is NAD83, multipolygon
+
+GooseLake=18020001    
+Upper Thomas Creek 180200010205   
+Middle Thomas Creek 180200010206   
+
+```{r}
+thom<-or[or$HUC12 %in% c(180200010205),]
+
+modocWGS <- st_transform(thom, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+modoc<-as_Spatial(modocWGS)
+modocdf2<-fortify(modoc)
+save(modocdf2, file="outputs/401/modocdf2.rda")
+```
+
+Plot
+
+```{r}
+ggplot() +
+  geom_polygon(data=modocdf2,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  coord_fixed(ratio=1.3) 
+
+```
+
+
+Let's also fill in the Sacramento Sucker distribution.
+
+Get goose lake Cottonwood Creek
+
+```{r}
+ddf<-as_data_frame(or$Name) %>% rename(Name=value)
+ddf$HUC12<-or$HUC12
+ddf$HUC12<-as.numeric(ddf$HUC12)
+```
+
+```{r}
+goose<-ddf %>% filter(str_detect(HUC12, "18020001")) 
+
+goose2<-or[or$HUC12 %in% goose$HUC12,]
+
+gooseWGS <- st_transform(goose2, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+gos<-as_Spatial(gooseWGS)
+goosedf<-fortify(gos)
+save(goosedf, file="outputs/401/goosedf.rda")
+```
+
+```{r}
+ggplot() +
+  geom_polygon(data=goosedf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
+  geom_polygon(data=modocdf2,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  coord_fixed(ratio=1.3) 
+
+```
