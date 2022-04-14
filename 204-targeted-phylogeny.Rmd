@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
 ```{r}
 library(tidyverse)
 library(ggtree)
+library(ape)
 ```
 
 ## Phylogeny
@@ -147,17 +148,125 @@ myfish %>% group_by(`Species Common Name`) %>% summarize(Count=n())
 
 ```{r}
 nrow(myfish)
+write_csv(myfish, "meta/phylo119.csv")
 ```
 
 
 ```{r}
-write_tsv(select(myfish, NewPath), "bamlists/phylo119.bamlist")
+write_tsv(select(myfish %>% ungroup, NewPath), col_names = FALSE, "bamlists/phylo119.bamlist")
+
+write_tsv(select(myfish %>% ungroup, `Sample ID`), col_names = FALSE, "outputs/204/samples119.txt")
+
 ```
 ```{sh, eval=FALSE}
-srun -p bigmemh -t 18:00:00 --mem=16G --nodes=1 --ntasks=1 angsd -P 4 \
+srun -p bigmemh -t 18:00:00 --mem=16G --nodes=1 --ntasks=1 angsd -P 6 \
 -bam bamlists/phylo119.bamlist \
 -out /home/maccamp/wall-canyon/outputs/204/plink \
 -anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 113 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/204/std.out 2>outputs/204/std.err &
 ```
+
+## Process
+
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 100000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples samples119.txt -o recode.prune.reheadered.vcf recode.prune.vcf
+
+```
+
+Convert to phylip, then nexus. Create a missing data set
+
+```{sh, eval=FALSE}
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+seqConverter.pl -drecode.prune.reheadered.min4.phy -on
+
+#Corrected for ascertainment bias
+~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+
+#Now remove missing??
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
+seqConverter.pl -dfiltered.phy -on
+```
+    
+    
+##Concat     
+
+```{sh, eval=FALSE}
+iqtree -s recode.prune.reheadered.min4.asc.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+Moved to farm:
+
+```{sh, eval=FALSE}
+srun -p high -t 05:00:00 iqtree -nt AUTO -s recode.prune.reheadered.min4.asc.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+
+Alignment has 119 sequences with 8248 columns, 8247 distinct patterns
+7433 parsimony-informative, 815 singleton sites, 0 constant sites
+
+
+```{r}
+iq<-read.tree("outputs/204/recode.prune.reheadered.min4.asc.phy.contree")
+iq<-root(iq, c("MS_PC_01","MS_PC_06","S_TR_17","S_TR_01"))
+
+t<-ggtree(iq)
+
+t$data$Bootstrap<-as.numeric(t$data$label)
+
+d <- t$data
+d <- d[!d$isTip,]
+d$label <- as.numeric(d$label)
+d <- d[d$label > 90,]
+
+e <- t$data
+e <- e[!e$isTip,]
+e$label <- as.numeric(e$label)
+e <- e[e$label < 90,]
+e <- e[e$label > 75,]
+
+t %<+% myfish +
+  geom_point(data=e,  color="gray50", cex=5, alpha=0.75, pch=18) +
+  geom_point(data=d,  color="black", cex=5, alpha=0.75, pch=18) +
+  geom_tippoint(aes(fill=`Species Common Name`), pch=21) +
+#  geom_nodelab() +
+  xlim(0,1)
+
+ggsave("outputs/204/concat-snps.pdf", width=7, height=8)
+```
+
+  geom_tip_point(aes(label=`Species Common Name`), offset=0.1, align=TRUE, size=3) +
+
+
+
+
+
+These samples have a high propoirtion of missing data
+(base) Macs-MBP-2:204 mac$ cat dumped.txt | cut -f 1
+MS_PC_03
+MS_PC_02
+934-003
+934-002
+1208-059
+1208-064
+WS_TMC15
+WS_DC01
+WS_TMC02
+WS_TMC05
+WS_TMC12
+WS_DC14
+
+```{sh, eval=FALSE}
+iqtree -s filtered.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+iqtree -s filtered.phy.varsites.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+
+Alignment has 107 sequences with 8168 columns, 8066 distinct patterns
+
+7330 parsimony-informative, 838 singleton sites, 0 constant sites

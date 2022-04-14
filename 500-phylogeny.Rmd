@@ -17,7 +17,7 @@ library(ape)
 
 ## Signal in Bagley et al?
 
-Made a 33 taxon alignment.
+Made a 46 taxon alignment with outgroups
 
 ```{sh,eval=FALSE}
 iqtree -s test.phylip -p test -st DNA -m GTR+G -B 1000  -redo
@@ -28,11 +28,18 @@ Three partitions:
 2	DNA	33	839	32	778	GTR	IRBP
 3	DNA	13	2250	42	2143	GTR	GHI_RPS7
 
+Partition file causes a crash of iqtree? Running without partitioning.
+
 
 ```{r}
 t<-read.tree("outputs/500/test.phylip.contree")
-t<-root(t, c("C_platyrhyn_BYU58618","P_clarkii_MSB49600","P_santa_UAIC12384_01","P_disco_yar_UAIC12776_01_2",
-  "P_discobolus_BYU57986","C_plebius_DAN0521_10","P_nebuliferus"))
+#t<-root(t, c("C_platyrhyn_BYU58618","P_clarkii_MSB49600","P_santa_UAIC12384_01","P_disco_yar_UAIC12776_01_2",
+ # "P_discobolus_BYU57986","C_plebius_DAN0521_10","P_nebuliferus"))
+
+og<-c("Myxocyprinus_UAIC11698_01","Car_cyprinus_TU157_01","Car_velifer_TU108_16","Car_carpio_UAIC11219_08","Cyc_elonga_UAIC11371_01","Cyc_merdion_UNL1_30",
+             "I_cyprinellus_TU107_15","I_niger_TU121_01")
+
+t<-root(t, og)
 t<-ggtree(t)
 
 t$data$Bootstrap<-as.numeric(t$data$label)
@@ -55,7 +62,34 @@ t  +
 #  geom_nodelab() +
   xlim(0,.5)
 
-ggsave("outputs/500/test.pdf")
+ggsave("outputs/500/test.pdf", height=6)
 ```
 
 Considering making this a timetree....
+
+
+## Fossils
+
+Fossil MinimumAge Dating
+C. asitus 4.5 C. rimiculus from C. snyderi. Due to hybridization... I don't know how useful this one is
+C. hyomizon ?
+
+
+
+C. oromyzon 4.5 TMRCA of C. bernardini, cahita,latipinnis, insignis (and leopolid)
+C. spatulifer 3.0 TMRCA of ardens, macrocheilus, tsiltcoosenis (an Ch. liorus)
+
+A. brevipenne 48.88 TMRCA <- root age of tree?
+A. huanensis 37.8 TMRCA of  Ictiobinae
+
+Plesiomyxocyprinus arratiae 39.67 divergence of Myxocyprinus from Cyc
+
+Five calibrations.
+
+## Set up
+```{r}
+#define ingroup
+t$data %>% filter(isTip==TRUE) %>% filter(!(label %in% og)) %>% select(label) %>% write_tsv("outputs/500/ingroup.tsv")
+```
+
+Set up relaxed clock dating with mb.
