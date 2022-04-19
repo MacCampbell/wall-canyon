@@ -92,6 +92,13 @@ plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap
 
 legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
 ```
+```{r}
+pdf("outputs/600/nd2-median-spanning-network.pdf")
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE,   bg = c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+
+legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+dev.off()
+```
 
 ```{r}
 m<-dist.dna(Naso, as.matrix = TRUE)

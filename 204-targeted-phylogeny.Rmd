@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
 library(tidyverse)
 library(ggtree)
 library(ape)
+library(viridis)
 ```
 
 ## Phylogeny
@@ -214,52 +215,55 @@ Alignment has 119 sequences with 8248 columns, 8247 distinct patterns
 ```{r}
 iq<-read.tree("outputs/204/recode.prune.reheadered.min4.asc.phy.contree")
 iq<-root(iq, c("MS_PC_01","MS_PC_06","S_TR_17","S_TR_01"))
-
-t<-ggtree(iq)
+t<-as.polytomy(iq, feature='node.label', fun=function(x) as.numeric(x) < 75)
+t<-ggtree(t)
 
 t$data$Bootstrap<-as.numeric(t$data$label)
 
 d <- t$data
 d <- d[!d$isTip,]
 d$label <- as.numeric(d$label)
-d <- d[d$label > 90,]
+d <- d[d$label >= 90,]
 
 e <- t$data
 e <- e[!e$isTip,]
 e$label <- as.numeric(e$label)
 e <- e[e$label < 90,]
-e <- e[e$label > 75,]
+e <- e[e$label >= 75,]
 
+```
+
+```{r}
 t %<+% myfish +
   geom_point(data=e,  color="gray50", cex=5, alpha=0.75, pch=18) +
   geom_point(data=d,  color="black", cex=5, alpha=0.75, pch=18) +
-  geom_tippoint(aes(fill=`Species Common Name`), pch=21) +
+#  geom_tippoint(aes(fill=`Species Common Name`,x=x+0.03), pch=21) +
+  geom_tiplab(aes(label=Location, color=`Species Common Name`), size=2, align = TRUE) +
 #  geom_nodelab() +
-  xlim(0,1)
+  xlim(0,.5)
 
 ggsave("outputs/204/concat-snps.pdf", width=7, height=8)
 ```
 
-  geom_tip_point(aes(label=`Species Common Name`), offset=0.1, align=TRUE, size=3) +
 
 
 
 
 
-These samples have a high propoirtion of missing data
-(base) Macs-MBP-2:204 mac$ cat dumped.txt | cut -f 1
-MS_PC_03
-MS_PC_02
-934-003
-934-002
-1208-059
-1208-064
-WS_TMC15
-WS_DC01
-WS_TMC02
-WS_TMC05
-WS_TMC12
-WS_DC14
+These samples have a high propoirtion of missing data     
+(base) Macs-MBP-2:204 mac$ cat dumped.txt | cut -f 1      
+MS_PC_03   
+MS_PC_02    
+934-003    
+934-002   
+1208-059    
+1208-064   
+WS_TMC15   
+WS_DC01   
+WS_TMC02   
+WS_TMC05   
+WS_TMC12   
+WS_DC14  
 
 ```{sh, eval=FALSE}
 iqtree -s filtered.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
@@ -270,3 +274,57 @@ iqtree -s filtered.phy.varsites.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
 Alignment has 107 sequences with 8168 columns, 8066 distinct patterns
 
 7330 parsimony-informative, 838 singleton sites, 0 constant sites
+
+```{sh, eval=FALSE}
+srun -p high -t 05:00:00 iqtree -nt AUTO -s filtered.phy.varsites.phy -st DNA -m MFP+ASC -bb 1000 -alrt 1000 -redo
+```
+
+```{r}
+iq<-read.tree("outputs/204/filtered.phy.varsites.phy.contree")
+iq<-root(iq, c("MS_PC_01","MS_PC_06","S_TR_17","S_TR_01","S_TR_09","S_TR_10","TS_EFCR_13","TS_EFCR_15"))
+t<-as.polytomy(iq, feature='node.label', fun=function(x) as.numeric(x) < 75)
+t<-ggtree(t) %>% ggtree::rotate(127) %>% ggtree::rotate(146)
+
+
+t$data$Bootstrap<-as.numeric(t$data$label)
+
+d <- t$data
+d <- d[!d$isTip,]
+d$label <- as.numeric(d$label)
+d <- d[d$label >= 90,]
+
+e <- t$data
+e <- e[!e$isTip,]
+e$label <- as.numeric(e$label)
+e <- e[e$label < 90,]
+e <- e[e$label >= 75,]
+
+```
+
+```{r}
+t2<-t %<+% left_join(myfish, additional, by=c("Sample ID"="GVL Code")) 
+```
+
+```{r}
+t2$data$Location<-gsub(", Bishop, CA|  Bishop, CA|, Bishop,CA|,  Bishop, CA","",t2$data$Location)
+t2$data$Location<-gsub(", NV|, OR","",t2$data$Location)
+```
+
+```{r}
+t2 +
+  geom_point(data=e,  fill="#FDE725FF", cex=2, alpha=0.75, pch=21) +
+  geom_point(data=d,  fill="#440154FF", cex=2, alpha=0.75, pch=21) +
+#  geom_tippoint(aes(fill=`Species Common Name`,x=x+0.03), pch=21) +
+  geom_tiplab(data=t2$data %>% filter(!`Species Common Name` %in% c("Wall Canyon Sucker", "Owens Sucker", "Warner Sucker")),
+              aes(label=`Species Common Name`), size=2, align = TRUE) +
+  geom_tiplab(data=t2$data %>% filter(`Species Common Name` %in% c("Wall Canyon Sucker", "Owens Sucker", "Warner Sucker")),
+              aes(label=Location), size=2, align = TRUE) +
+  geom_cladelab(128,"Owens Sucker", offset=0.08, offset.text=0.001) +
+  geom_cladelab(147,"Wall Canyon Sucker", offset=0.08, offset.text=0.001) +
+  geom_cladelab(157,"Warner Sucker", offset=0.08, offset.text=0.001) +
+#  geom_nodelab() +
+  xlim(0,.5) +
+  geom_treescale()
+
+ggsave("outputs/204/concat-snps-filtered.pdf", width=7, height=8)
+```
