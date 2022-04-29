@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 library(tidyverse)
 library(ggtree)
 library(ape)
+library(treeio)
+library(ggrepel)
 ```
 
 ## Signal in Bagley et al?
@@ -92,4 +94,66 @@ Five calibrations.
 t$data %>% filter(isTip==TRUE) %>% filter(!(label %in% og)) %>% select(label) %>% write_tsv("outputs/500/ingroup.tsv")
 ```
 
-Set up relaxed clock dating with mb.
+Set up relaxed clock dating with mb. After 40 million generations, runs 1,3,4 yield ESS >596. minimum 597 TL{all} with burnin of 10%, tracer v 1.7.2. Loading with mb and rerunning sumt command. `/Users/mac/github/wall-canyon/outputs/500/cui-ui`
+	sumt relburnin=yes burninfrac=0.10  nruns=3 contype=allcompat outputname=allcompat;
+
+Now including Ch.cujus
+
+```{r}
+tt<-read.beast("outputs/500/cui-ui/allcompat.con.tre")
+
+t3<-ggtree(tt)
+
+t3 + geom_nodelab(aes(label=node)) + geom_tiplab() +
+  xlim(0,70)
+```
+
+```{r}
+nodes<- t3$data %>% filter(node %in% c(76,77,78,79,80)) 
+nodes$age<-round(as.numeric(nodes$age_median),2)
+
+```
+
+```{r}
+t3 +
+  theme_tree2()+
+  geom_vline(xintercept=c(3,13,23,33,43), lty=2, lwd=0.5, alpha=0.5) +
+  geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
+  geom_tiplab(size=4) +
+  scale_x_continuous(name="\nTime in Millions of Years Ago", breaks=c(3,13,23,33,43,53), 
+                     labels=c(50,40,30,20,10,0),
+                     limits=c(0,75))  +
+#  geom_label_repel(data=nodes,aes(x=x,y=y,label=age), alpha=0.75) +
+  theme(axis.text.x = element_text(size=14, face="bold")) +
+  theme(axis.title.x = element_text(size=14))
+
+ggsave("outputs/500/time-tree.pdf", width=8.5, height=11)
+```
+
+```{r}
+uu<-read.beast("outputs/500/cui-ui/allcompat.con.tre")
+uuu<-tree_subset(uu, node=76, levels_back = 0)
+
+u3<-ggtree(uuu) #+ geom_nodelab(aes(label=node))
+u3
+
+nodesu <- u3$data %>% filter(node %in% c(14,15,16,17,18))
+nodesu$age<-round(as.numeric(nodesu$age_median),2)
+
+xu<-nodesu[3,]$x
+yu<-nodesu[3,]$y
+zu<-round(unlist(nodesu$height_0.95HPD[3]),2)
+lab<-paste0(zu[1],"-",z[2])
+dflab<-data_frame(xu,yu,lab)
+```
+
+```{r}
+u3 +
+  geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
+  geom_tiplab(size=4) +
+  geom_label(data=nodesu,aes(x=x,y=y,label=age), alpha=0.75) +
+  geom_label_repel(data=dflab, aes(x=xu, y=yu, label=lab), color="red", alpha=0.75) +
+  xlim(0,25)
+
+ggsave("outputs/500/time-tree-subclade.jpg")
+```

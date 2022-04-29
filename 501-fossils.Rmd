@@ -1,0 +1,20 @@
+---
+title: "501-fossils"
+author: "Mac Campbell"
+date: "4/25/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(paleobioDB)
+```
+
+
+## Query Catostomidae fossils
+
+paleobioDB says: "Catostomus shoshonensis was named by Cope (1883). It is extant."

@@ -40,7 +40,7 @@ ind.hap
 ```{r}
 plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE)
 
-legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=2:5)
+legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis","Ch. cujus"), text.col=2:6)
 ```
 
 ## Compute average pairwise distances
@@ -49,6 +49,10 @@ By default uses k2p
 
 ```{r}
 m<-dist.dna(Naso, as.matrix = TRUE)
+
+t<-nj(m)
+t<-root(t,c("Chasmistes_cujus"))
+plot(t)
 ```
 
 ```{r}
@@ -65,6 +69,8 @@ Average pairwsie, the way it is calcuated self-self measurements are in, so omit
 ```{r}
 df %>% filter(value != 0) %>% group_by(col, row) %>% mutate(meanK2p=mean(value)) %>% select(meanK2p) %>% mutate(Dist=100*(round(meanK2p, 3))) %>% unique()
 ```
+
+
 
 ## COI? Doesn't exist for Wall Canyon, found ND2
 
@@ -94,9 +100,9 @@ legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text
 ```
 ```{r}
 pdf("outputs/600/nd2-median-spanning-network.pdf")
-plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE,   bg = c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE,   bg = c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75),rgb(0,0.5,0.5,0.75)))
 
-legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis"), text.col=c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75)))
+legend("topright", c("C. fumeiventris", "C. Wall Canyon","C. warnerensis","Ch. cujus"), text.col=c(rgb(1,0,0,0.75), rgb(0,0,0,.75),rgb(0,0,1,0.75),rgb(0,0.5,0.5,0.75)))
 dev.off()
 ```
 
