@@ -1,0 +1,51 @@
+---
+title: "601-mtDNA"
+author: "Mac Campbell"
+date: "4/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ape)
+library(pegas)
+library(reshape2)
+```
+
+```{r}
+Naso<-read.dna(file="~/Dropbox/Native Fishes/pogonichthys-renamed.afas", format="fasta")
+
+Naso
+
+NasoHaps <- haplotype(Naso)
+NasoHaps
+
+NasoNet <- haploNet(NasoHaps)
+plot(NasoNet, size=attr(NasoNet,"freq"), fast=FALSE)
+```
+
+```{r}
+m<-dist.dna(Naso, as.matrix = TRUE)
+
+t<-nj(m)
+plot(t)
+```
+
+```{r}
+sample<-m
+ df <- na.omit(melt(sample))  # reshaping
+ df <- df[order(df$Var1), ]   # ordering
+ colnames(df) <- c("col", "row", "value") 
+ df<-as_tibble(df)
+```
+
+
+Average pairwsie, the way it is calcuated self-self measurements are in, so omitting them for this test case by removing 0
+
+```{r}
+df %>% filter(value != 0) %>% group_by(col, row) %>% mutate(meanK2p=mean(value)) %>% select(meanK2p) %>% mutate(Dist=100*(round(meanK2p, 3))) %>% unique()
+```

@@ -1,0 +1,165 @@
+---
+title: "402-great-basin"
+author: "Mac Campbell"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(maps)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(polyggon)
+```
+
+## Get HUC4 or 6 level polygons of basins.
+https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/WBD/HU2/Shape/
+
+Need
+171200; 160*
+
+How to filter??
+
+```{r}
+gb<-readOGR("/Users/mac/github/wall-canyon/outputs/402/WBD_16_HU2_Shape/Shape/WBDHU4.shp")
+gb <- spTransform(gb, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+gbdf<-fortify(gb)
+```
+
+```{r}
+or<-readOGR("/Users/mac/github/wall-canyon/outputs/402/WBD_17_HU2_Shape/Shape/WBDHU6.shp")
+or<-or[or$huc6=="171200",]
+or <- spTransform(or, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+ordf<-fortify(or)
+```
+
+ca: 180901, 180902, 181001
+```{r}
+ca<-readOGR("/Users/mac/github/wall-canyon/outputs/402/WBD_18_HU2_Shape/Shape/WBDHU6.shp")
+ca<-ca[ca$huc6 %in% c("180901","180902","181001","180800"),]
+ca <- spTransform(ca, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+cadf<-fortify(ca)
+```
+
+Get White    15010011
+ 
+```{r}
+co<-readOGR("/Users/mac/github/wall-canyon/outputs/402/WBD_15_HU2_Shape/Shape/WBDHU8.shp")
+co<-co[co$huc8 %in% c("15010011"),]
+co <- spTransform(co, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+codf<-fortify(co)
+```
+  
+```{r}
+sordf<-ordf %>% filter(row_number() %% 10 == 1)
+sgbdf<-gbdf %>% filter(row_number() %% 10 == 1)
+scadf<-cadf %>% filter(row_number() %% 10 == 1)
+```
+
+```{r}
+ggplot() + 
+  geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=sgbdf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=cadf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=codf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0)
+```
+
+
+```{r}
+states<-map_data("state") %>% filter(region %in% c("california","oregon","nevada","utah"))
+
+cali<- map_data("state") %>% filter(region %in% c("california"))
+domain <- c(min(states$long), max(states$long), min(states$lat), max(states$lat))
+
+# here eric implements something and I copy it
+tidy_subset <- function(x, longlat) {
+  x@data$id <- rownames(x@data)
+  x.f <- broom::tidy(x) %>%
+    dplyr::left_join(., x@data, by = "id") %>%
+    dplyr::tbl_df() %>%
+    filter(long > longlat[1],
+           long < longlat[2],
+           lat > longlat[3],
+           lat < longlat[4])
+}
+
+```
+
+
+
+```{r}
+nat.earth<-stack("~/github/mccloud-rrt/outputs/1000/NE2_HR_LC_SR_W_DR/NE2_HR_LC_SR_W_DR.tif")
+
+nat.crop <- crop(nat.earth, y=extent(domain))
+
+rast.table <- data.frame(xyFromCell(nat.crop, 1:ncell(nat.crop)),
+                         getValues(nat.crop/255))
+
+
+rast.table$rgb <- with(rast.table, rgb(NE2_HR_LC_SR_W_DR.1,
+                                       NE2_HR_LC_SR_W_DR.2,
+                                       NE2_HR_LC_SR_W_DR.3,
+                                       1))
+
+save(rast.table, file="outputs/402/rast.table.rda")
+```
+
+```{r}
+mapg<-ggplot() + 
+  geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=sgbdf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=cadf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=codf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  coord_fixed(ratio=1.3) +
+  theme_bw() +
+  theme(panel.grid=element_blank()) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(axis.title=element_text(size=14))
+
+mapg
+```
+
+with pluvial lakes https://earthworks.stanford.edu/catalog/stanford-xb000vk8400     
+
+```{r}
+#Pleistocene Map
+pluv<-readOGR("/Users/mac/github/wall-canyon/outputs/402/data/ne_10m_lakes_pluvial.shp")
+pluv <- spTransform(pluv, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+pluvdf<-fortify(pluv)
+```
+
+```{r}
+mapp<-ggplot() + 
+  geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_holygon(data=pluvdf,aes(x=long, y=lat, group=group), fill="cornflowerblue", alpha=.75) +
+  geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=sgbdf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=cadf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  geom_polygon(data=codf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
+  coord_fixed(ratio=1.3) +
+  theme_bw() +
+  theme(panel.grid=element_blank()) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(axis.title=element_text(size=14))
+
+
+mapp
+```
+
+
+```{r}
+ggarrange(mapg + ggtitle("A") + theme(plot.title = element_text(size=22, face="bold")), mapp + ggtitle("B") + theme(plot.title = element_text(size=22, face="bold")), ncol=2)
+
+ggsave("~/github/wall-canyon/outputs/402/greatbasin-map.pdf", width=16, height=11)
+```

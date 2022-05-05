@@ -15,6 +15,7 @@ library(ggtree)
 library(ape)
 library(treeio)
 library(ggrepel)
+library(viridis)
 ```
 
 ## Signal in Bagley et al?
@@ -99,6 +100,14 @@ Set up relaxed clock dating with mb. After 40 million generations, runs 1,3,4 yi
 
 Now including Ch.cujus
 
+Create nice Meta
+```{r, eval=FALSE}
+write_csv(t$data %>% filter(isTip=="TRUE") %>% select(label), "meta/time-tree-meta.csv")
+```
+```{r}
+tips<-read_csv("meta/time-tree-meta-edited.csv")
+```
+
 ```{r}
 tt<-read.beast("outputs/500/cui-ui/allcompat.con.tre")
 
@@ -115,20 +124,56 @@ nodes$age<-round(as.numeric(nodes$age_median),2)
 ```
 
 ```{r}
-t3 +
+up2<-t3 %<+% tips +
   theme_tree2()+
   geom_vline(xintercept=c(3,13,23,33,43), lty=2, lwd=0.5, alpha=0.5) +
   geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
-  geom_tiplab(size=4) +
+  geom_tiplab(size=3.5, offset=3, aes(label=Name)) +
+  geom_tippoint(aes(x=x+.25, fill=`Great Basin`), pch=21, cex=2.5) +
   scale_x_continuous(name="\nTime in Millions of Years Ago", breaks=c(3,13,23,33,43,53), 
                      labels=c(50,40,30,20,10,0),
                      limits=c(0,75))  +
 #  geom_label_repel(data=nodes,aes(x=x,y=y,label=age), alpha=0.75) +
   theme(axis.text.x = element_text(size=14, face="bold")) +
-  theme(axis.title.x = element_text(size=14))
+  theme(axis.title.x = element_text(size=14)) +
+  scale_fill_viridis_d()
 
+up2
 ggsave("outputs/500/time-tree.pdf", width=8.5, height=11)
 ```
+
+### Ancestral state reconstruction
+
+```{r}
+temp<-select(tips, label, `Great Basin`)
+
+target<-t3$data %>% filter(isTip==TRUE) %>% select(label)  
+
+#target<-target%>% dplyr::rename("Seq"="value")
+
+#Sort our data as in tip labels
+data<-left_join(target,temp)
+
+ERreconstruction<-ace(data$`Great Basin`,as.phylo(tt), type="discrete", method="ML", model="ER") #or ER
+
+```
+
+```{r}
+states<-ERreconstruction$lik.anc %>% as_tibble()
+states$node<-rownames(ERreconstruction$lik.anc)
+```
+
+
+```{r}
+
+pies <- nodepie(states, cols=1:2, color=c(Yes=viridis(2)[2], No=viridis(2)[1]), alpha=1)
+up3<-inset(up2, pies, width=.08, height=.08)
+
+pdf("outputs/500/equal-rates-ancestral-reconstruction.pdf", width=8, height=11)
+up3
+dev.off()
+```
+
 
 ```{r}
 uu<-read.beast("outputs/500/cui-ui/allcompat.con.tre")
@@ -148,9 +193,9 @@ dflab<-data_frame(xu,yu,lab)
 ```
 
 ```{r}
-u3 +
+u3 %<+% tips +
   geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
-  geom_tiplab(size=4) +
+  geom_tiplab(size=4, aes(label=Name)) +
   geom_label(data=nodesu,aes(x=x,y=y,label=age), alpha=0.75) +
   geom_label_repel(data=dflab, aes(x=xu, y=yu, label=lab), color="red", alpha=0.75) +
   xlim(0,25)
