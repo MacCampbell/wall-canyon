@@ -312,8 +312,8 @@ t2$data$Location<-gsub(", NV|, OR","",t2$data$Location)
 
 ```{r}
 t2 +
-  geom_point(data=e,  fill="#FDE725FF", cex=2, alpha=0.75, pch=21) +
-  geom_point(data=d,  fill="#440154FF", cex=2, alpha=0.75, pch=21) +
+  geom_point(data=e,  fill="grey", cex=2, alpha=0.75, pch=21) +
+  geom_point(data=d,  fill="black", cex=2, alpha=0.75, pch=21) +
 #  geom_tippoint(aes(fill=`Species Common Name`,x=x+0.03), pch=21) +
   geom_tiplab(data=t2$data %>% filter(!`Species Common Name` %in% c("Wall Canyon Sucker", "Owens Sucker", "Warner Sucker")),
               aes(label=`Species Common Name`), size=2, align = TRUE) +
@@ -327,4 +327,16 @@ t2 +
   geom_treescale()
 
 ggsave("outputs/204/concat-snps-filtered.pdf", width=7, height=8)
+```
+
+
+### Test data set for SNAP
+
+```{r}
+
+snapp<-myfish %>% filter(!(`Species Common Name` %in% c("Mountain Sucker"))) %>% group_by(`Species Common Name`, Location) %>% 
+  arrange(`Species Common Name`, Location) %>%
+  top_n(n=2, wt=Counts) 
+
+write_csv(snapp, file="outputs/205/snapplist.csv")
 ```

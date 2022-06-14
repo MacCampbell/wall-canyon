@@ -400,6 +400,8 @@ ggarrange(p2,
           ncol=1, heights=c(1,1,1,1.5))
 
 ggsave("outputs/700/wow-ks.jpg", height=8, width = 8)
+ggsave("outputs/700/wow-ks.pdf", height=8, width = 8)
+
 ```
 
 ## DAPC
@@ -498,6 +500,8 @@ k4<-ggplot(post) +
 k4
 
 ggsave("outputs/700/dapc-k4.jpg")
+ggsave("outputs/700/dapc-k4.pdf")
+
 ```
 
 BIC Plot?
@@ -515,6 +519,17 @@ bic<-ggplot(kdf, aes(x=K, y=BIC)) +
   theme(panel.grid = element_blank())
 bic
 ggsave("outputs/700/dapc-k4-bic.jpg")
+ggsave("outputs/700/dapc-k4-bic.pdf")
+
+```
+
+```{r}
+ggarrange(bic +  ggtitle("A") + theme(plot.title = element_text(hjust=0, face = "bold")),
+          k4 +ggtitle("B") + theme(plot.title = element_text(hjust=0, face = "bold")),
+          ncol=2, widths = c(1,1.5)
+ )
+ggsave("outputs/700/Figure 7.pdf", width=11, height=4)
+
 ```
 
 ## Fst
@@ -568,6 +583,10 @@ z<-calc_pairwise_fst(my.dat, "Location")
 locfst<-get.snpR.stats(z, "Location", "fst")
 #this is weighted means
 m<-locfst$fst.matrix$Location
+```
+
+```{r}
+m
 ```
 
 ```{r}

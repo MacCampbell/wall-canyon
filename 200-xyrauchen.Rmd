@@ -74,6 +74,10 @@ b3 <- b2 %>% mutate(File=paste0(`Sample ID`,"_RA.sort.flt.bam"),
 mean(b3$Counts)
 ```
 
+```{r}
+b3 %>% group_by(`Species Common Name`, `Scientific Name`) %>% summarize(Count=n(), `Mean Counts`=mean(Counts)) %>% ungroup() %>% arrange(`Scientific Name`)
+```
+
 Histogram of coverage    
 ```{r}
 ggplot(b3) +

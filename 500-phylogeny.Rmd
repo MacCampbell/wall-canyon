@@ -132,11 +132,15 @@ up2<-t3 %<+% tips +
   geom_tippoint(aes(x=x+.25, fill=`Great Basin`), pch=21, cex=2.5) +
   scale_x_continuous(name="\nTime in Millions of Years Ago", breaks=c(3,13,23,33,43,53), 
                      labels=c(50,40,30,20,10,0),
-                     limits=c(0,75))  +
+                     limits=c(0,85))  +
 #  geom_label_repel(data=nodes,aes(x=x,y=y,label=age), alpha=0.75) +
   theme(axis.text.x = element_text(size=14, face="bold")) +
   theme(axis.title.x = element_text(size=14)) +
-  scale_fill_viridis_d()
+  scale_fill_viridis_d() +
+  geom_cladelab(node=90, "Tahoe Sucker\nand relatives", offset=15) +
+  geom_cladelab(node=77, "Wall Canyon Sucker\nand relatives", offset=17) +
+  geom_cladelab(node=71, "Mountain Sucker\nand relatives", offset=18) +
+  theme(legend.position = "top")
 
 up2
 ggsave("outputs/500/time-tree.pdf", width=8.5, height=11)
@@ -155,7 +159,7 @@ target<-t3$data %>% filter(isTip==TRUE) %>% select(label)
 data<-left_join(target,temp)
 
 ERreconstruction<-ace(data$`Great Basin`,as.phylo(tt), type="discrete", method="ML", model="ER") #or ER
-
+save(ERreconstruction, file="outputs/500/ERreconstruction.rda")
 ```
 
 ```{r}
@@ -179,10 +183,11 @@ dev.off()
 uu<-read.beast("outputs/500/cui-ui/allcompat.con.tre")
 uuu<-tree_subset(uu, node=76, levels_back = 0)
 
+ggtree(uuu) +  geom_nodelab(aes(label=node))
 u3<-ggtree(uuu) #+ geom_nodelab(aes(label=node))
 u3
 
-nodesu <- u3$data %>% filter(node %in% c(14,15,16,17,18))
+nodesu <- u3$data  %>% filter(node %in% seq(14,25, by=1))
 nodesu$age<-round(as.numeric(nodesu$age_median),2)
 
 xu<-nodesu[3,]$x
@@ -195,10 +200,13 @@ dflab<-data_frame(xu,yu,lab)
 ```{r}
 u3 %<+% tips +
   geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
-  geom_tiplab(size=4, aes(label=Name)) +
+  geom_tiplab(size=3, aes(label=Name)) +
   geom_label(data=nodesu,aes(x=x,y=y,label=age), alpha=0.75) +
   geom_label_repel(data=dflab, aes(x=xu, y=yu, label=lab), color="red", alpha=0.75) +
-  xlim(0,25)
+  geom_cladelab(node=15, "Wall Canyon Sucker\nand relatives", offset=8) +
+  geom_cladelab(node=23, "Klamath Group", offset=8) +
+  geom_cladelab(node=19, "Sacramento Group", offset=8) +
+  xlim(0,35)
 
 ggsave("outputs/500/time-tree-subclade.jpg")
 ```

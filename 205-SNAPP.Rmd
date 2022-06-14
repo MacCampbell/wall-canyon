@@ -1,0 +1,140 @@
+---
+title: "205-SNAPP"
+author: "Mac Campbell"
+date: "5/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+
+```{r}
+library(tidyverse)
+library(ggtree)
+library(ape)
+library(viridis)
+```
+
+## So it has come to this.
+
+https://github.com/mmatschiner/tutorials/blob/master/divergence_time_estimation_with_snp_data/README.md
+
+ln -s to  ../204/recode.prune.reheadered.vcf
+
+_1_ subsample data to WOW?
+
+```{r}
+snapp<-read_csv("outputs/205/snapplist.csv")
+snapp$`Sample ID`
+```
+
+Filter to one chrom and target species
+
+```{sh, eval=FALSE}
+(base) Macs-MacBook-Pro-2:205 mac$ cut -f 1 -d ',' snapplist.csv | grep -v "Sample" > samples.txt
+#samples-reduced.txt has 26 samples
+base) Macs-MacBook-Pro-2:205 mac$ cp recode.prune.reheadered.vcf recode.prune.reheadered.copy.vcf
+(base) Macs-MacBook-Pro-2:205 mac$ bgzip recode.prune.reheadered.copy.vcf 
+(base) Macs-MacBook-Pro-2:205 mac$ bcftools index recode.prune.reheadered.copy.vcf.gz 
+
+#then
+
+bcftools view  recode.prune.reheadered.copy.vcf.gz  -S samples-reduced.txt --regions "lcl|RBS_Chr1,lcl|RBS_Chr2" -o sub.vcf
+bcftools view -e 'AC==0 || AC==AN || F_MISSING > 0.0' -o sub2.vcf sub.vcf
+
+wget https://raw.githubusercontent.com/mmatschiner/snapp_prep/master/snapp_prep.rb
+```
+
+492 variants
+
+Need species sample file and a constraint file.
+
+constraining wow clade at 4.4–6.2
+
+70. f*Catostomus shoshonensis Cope (Shoshone suck- er). This species (including its synonym, C. ellipticus) is from the Miocene and Pliocene Snake River Plain (Smith et al.,
+1982) and from Pliocene sediments at Honey Lake, California (Taylor and Smith, 1981). Catostomus shoshonensis is diag- nosed by an elliptical maxilla with the attachment of the pa
+latine ligament high on the neck of the anterodorsal process (Smith, 1975, fig. 12A). This form is represented by the relict sucker of Wall Canyon, Surprise Valley, Nevada; this conclu- sion is based upon the shape of the maxilla.   
+
+Taylor and Smith 1981 Five dentaries and five maxillae from locality B. This Honey lake fossil is not related to any
+sucker known from the Great Basin, but is similar to forms from the Pliocene Glenns Ferry
+Formation in Idaho. The dentaries resemble Catostomus cristatus Cope; the maxillae resemble
+C. shoshonensis Cope (Smith, 1975).
+Chasm istes cf. C. cujus Cope
+Pl.19, Figs. 9,10
+Locality A, one partial maxilla. Locality B, three maxillae, two dentaries, one preopercle, one
+hyomandibular, three opercles, numerous fragments. The maxillae resemble C. cujus as well as
+several Pliocene and Pleistocene forms distributed along the western margin of the Great Basin
+(Miller and Smith, 1981).
+
+Can use a minimum of 3, mean of 4.4 sd of 0.25 stem?
+Or, a uniform 3 - 4.4 for the crown?
+
+-m 1000 to subsample to 1,000 snps, but we only have a few hundred
+starting tree has old divergences (TahoeEFCR:5,(((((WarnerHoneyCrk:5,WarnerTwenty:5),WallCanyon:5),(OwensHorton:5,OwensLHotCrk:5))),(SacSucker:5,(Modoc:5,((KlamathLargescale:5,KlamathSmallscale:5),(Shortnose:5,LostRiver:5)))))); opened in figtree, then made as cladogram, saved.
+
+```{sh, eval=FALSE}
+cp samples-reduced.txt samples-reduced-species.txt
+
+ruby snapp_prep.rb -v sub2.vcf -t samples-reduced-species.txt -c constraint.txt -s as-cladogram.tre -x analysis.xml -o analysis -m 100 -l 100000
+java -Xmx1G  -jar /Applications/BEAST\ 2.4.7/lib/beast.jar -overwrite  analysis.xml 
+```
+
+Working, but note to self to set memory, maximum heap at 1G e.g. -Xmx1G. Then, it craps out. Too many species or too many sites, reducing sites to 100. Runs longer, but still craps out.
+
+barebones with only WOW fish
+
+```{sh, eval=FALSE}
+bcftools view  recode.prune.reheadered.copy.vcf.gz  -S barebones.txt -o sub-barebones.vcf
+#--regions "lcl|RBS_Chr1,lcl|RBS_Chr2" 
+bcftools view -e 'AC==0 || AC==AN || F_MISSING > 0.0' -o sub2-barebones.vcf sub-barebones.vcf
+
+ruby snapp_prep.rb -v sub2-barebones.vcf -t barebones-species.txt -c constraint.txt -s tree.tre -x analysis.xml -o analysis -m 1000 -l 10000
+#constraint as crown.
+java -Xmx1G  -jar /Applications/BEAST\ 2.4.7/lib/beast.jar -overwrite  analysis.xml 
+
+```
+
+Now it works, lowest ess is 29 for clock rate. with ~400 snps and 100,000 gens (4hrs/million states)
+
+How does increasing snps (to 1000 change run time?) (17 hrs/million states, 10,000 gens ) ess 5-52
+
+How does increasing individuals, but not SNPs change run time? 
+
+Which Warner Suckers are "natural"?
+
+We have 3 drainages with Warner Sucker in them. For the most part they don’t tend to exchange as much genetics as in the past when water was abundant. I attached an updated life history report on the Warner Sucker to give you an idea of the landscape. Basically 3 populations in Deep, Twentymile and Honey Creeks. Due to irrigation and channel realignment the Twentymile population is mostly disconnected and the Deep and Honey Creek populations have some genetic exchange.
+
+South Warner Valley - Twenty and Deep, North Warner Valley is Honey
+
+```{r}
+tree<-read.beast("outputs/205/barebones.tre")
+```
+ 
+```{r}
+t<-ggtree(tree)
+max<-max(t$data$x)
+```
+
+```{r}
+t$data %>% filter(isTip=="FALSE") %>% select(x,height_0.95_HPD) 
+```
+
+```{r}
+t + 
+  theme_tree2() + 
+  geom_range(range='height_0.95_HPD', color='red', alpha=.6, size=2) + 
+  geom_nodelab(aes(label= round(height_median,2))) +
+  geom_vline(xintercept=c(max-4,max-3,max-2,max-1,max), lty=2, lwd=0.5, alpha=0.5) +
+  geom_tiplab() +
+  scale_x_continuous(name="\nTime in Millions of Years Ago", breaks=c(max-4,max-3,max-2,max-1,max), 
+                     labels=c(4,3,2,1,0),
+                     limits=c(0,5))  
+ggsave("outputs/205/SNAPP.tre.pdf")
+```
+
+[1] 0.6009736 2.0055057, 0.6-2 million years.
+
+
+
