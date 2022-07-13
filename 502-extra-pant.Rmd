@@ -1,0 +1,66 @@
+---
+title: "502-extra-pantosteus"
+author: "Mac Campbell"
+date: "7/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggtree)
+```
+
+## Including extra Pantosteus
+P. lahontan, P. bondi, P. jordani, P. virescens
+
+```{sh, eval=FALSE}
+iqtree -s pant.phy -st DNA -m GTR+G -bb 1000  -redo
+```
+
+```{r}
+tips<-read_csv("meta/time-tree-meta-edited.csv")
+```
+
+```{r}
+t<-read.tree("outputs/502/pantosteus/pant/pant.phy.contree")
+#t<-root(t, c("C_platyrhyn_BYU58618","P_clarkii_MSB49600","P_santa_UAIC12384_01","P_disco_yar_UAIC12776_01_2",
+ # "P_discobolus_BYU57986","C_plebius_DAN0521_10","P_nebuliferus"))
+
+#og<-c("Myxocyprinus_UAIC11698_01","Car_cyprinus_TU157_01","Car_velifer_TU108_16","Car_carpio_UAIC11219_08","Cyc_elonga_UAIC11371_01","Cyc_merdion_UNL1_30",
+ #            "I_cyprinellus_TU107_15","I_niger_TU121_01")
+og<-("Myxocyprinus_UAIC11698_01")
+t<-root(t, og)
+t<-ggtree(t)
+
+t$data$Bootstrap<-as.numeric(t$data$label)
+
+d <- t$data
+d <- d[!d$isTip,]
+d$label <- as.numeric(d$label)
+d <- d[d$label >= 90,]
+
+e <- t$data
+e <- e[!e$isTip,]
+e$label <- as.numeric(e$label)
+e <- e[e$label < 90,]
+e <- e[e$label > 75,]
+
+t  %<+% tips +
+  geom_point(data=e,  fill="gray50", cex=3, alpha=0.75, pch=23) +
+  geom_point(data=d,  fill="black", cex=3, alpha=0.75, pch=23) +
+  geom_tiplab(offset=0.1, align=TRUE, size=3, aes(label=Name)) +
+  geom_tippoint(aes(fill=`Great Basin`, shape=`Major Basin`), cex=3, alpha=1) +
+  scale_fill_viridis_d() +
+  scale_shape_manual(values=c(25,22,23,24,21))+
+  guides(fill = guide_legend(override.aes = list(shape=c(21,21), colour="black", 
+                                     fill=c(viridis(n=2)[1], viridis(n=2)[2])))) +
+#  geom_nodelab() +
+  xlim(0,.55) +
+  geom_treescale()
+
+ggsave("outputs/502/test.pdf", height=8)
+```
