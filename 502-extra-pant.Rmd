@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```{r}
 library(tidyverse)
 library(ggtree)
+library(ape)
+library(viridis)
 ```
 
 ## Including extra Pantosteus
@@ -59,8 +61,8 @@ t  %<+% tips +
   guides(fill = guide_legend(override.aes = list(shape=c(21,21), colour="black", 
                                      fill=c(viridis(n=2)[1], viridis(n=2)[2])))) +
 #  geom_nodelab() +
-  xlim(0,.55) +
+  xlim(0,.7) +
   geom_treescale()
 
-ggsave("outputs/502/test.pdf", height=8)
+ggsave("outputs/502/test.pdf", height=8, width=10)
 ```

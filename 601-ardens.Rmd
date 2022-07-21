@@ -1,0 +1,86 @@
+---
+title: "601-ardens"
+author: "Mac Campbell"
+date: "7/21/2022"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ape)
+library(pegas)
+library(reshape2)
+library(phytools)
+```
+
+```{r}
+Naso<-read.dna(file="outputs/601/renamed.afas", format="fasta")
+
+Naso
+
+NasoHaps <- haplotype(Naso)
+NasoHaps
+
+NasoNet <- haploNet(NasoHaps)
+plot(NasoNet, size=attr(NasoNet,"freq"), fast=FALSE)
+```
+
+
+```{r}
+ind.hap<-with(
+  utils::stack(setNames(attr(NasoHaps, "index"), rownames(NasoHaps))),
+  table(hap=ind, individuals=rownames(Naso)[values])
+ )
+ind.hap
+```
+
+```{r}
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .4, cex = 7, pie=ind.hap, labels = FALSE)
+
+legend("topright", c("C. ardens", "C. ardensXmuriei", "Ch. liorus","Ch. l. mictus","Ch. muriei"), text.col=2:6)
+```
+
+## Compute average pairwise distances
+
+By default uses k2p
+
+```{r}
+m<-dist.dna(Naso, as.matrix = TRUE)
+
+t<-nj(m)
+plot(t)
+```
+
+```{r}
+dat<-read.dna("outputs/601/names-shortened-with-locs-even-shorter.afas", format = "fasta")
+
+mat<-dist.dna(dat, as.matrix = TRUE)
+
+tree<-nj(mat)
+plot(tree)
+pdf("outputs/601/nj.tre.pdf")
+plot(tree, "u", cex=0.5)
+dev.off()
+```
+
+
+## Can calculate pairwise distance like this
+```{r}
+sample<-m
+ df <- na.omit(melt(sample))  # reshaping
+ df <- df[order(df$Var1), ]   # ordering
+ colnames(df) <- c("col", "row", "value") 
+ df<-as_tibble(df)
+```
+
+
+Average pairwsie, the way it is calcuated self-self measurements are in, so omitting them for this test case by removing 0
+
+```{r}
+df %>% filter(value != 0) %>% group_by(col, row) %>% mutate(meanK2p=mean(value)) %>% select(meanK2p) %>% mutate(Dist=100*(round(meanK2p, 3))) %>% unique()
+```
