@@ -1,0 +1,71 @@
+---
+title: "602-abgd"
+author: "Mac Campbell"
+date: "7/28/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggtree)
+library(phytools)
+```
+
+cytb.
+
+(base) Macs-MacBook-Pro-2:602 mac$ grep ">" cytb.afas 
+>MH603006.1 Catostomus sp. 'Wall Canyon'
+>JX488812.1 Catostomus sp. 'Wall Canyon'
+>JX488813.1 Catostomus sp. 'Wall Canyon'
+>JX488814.1 Catostomus warnerensis
+>KU697915.1 Catostomus warnerensis
+>JX488815.1 Catostomus warnerensis 
+>JX488785.1 Catostomus fumeiventris
+>MH603022.1:1 Catostomus fumeiventris
+>JX488784.1 Catostomus fumeiventris
+
+in 602: ../temp/Abgd/abgd -a cytb.afas 
+../temp/Abgd/abgd -a nd2.afas
+>MH603026.1:1-1047 Catostomus sp.
+>JX488882.1:1-1047 Catostomus sp.
+>JX488883.1:1-1047 Catostomus sp.
+>JX488884.1:1-1047 Catostomus warnerensis
+>KU697943.1:1-1047 Catostomus warnerensis
+>JX488885.1:1-1047 Catostomus warnerensis
+>KU697962.1:1-1047 Chasmistes cujus
+>JX488853.1:1-1047 Catostomus fumeiventris
+>JX488854.1:1-1047 Catostomus fumeiventris
+>MH603042.1:1-1047 Catostomus fumeiventris
+
+~/Dropbox/bin/shortenNamesMac.pl nd2.afas > nd2-shortnames.afas
+../temp/Abgd/abgd -a nd2-shortnames.afas 
+
+../temp/Abgd/abgd -a nd2-renamed.afas 
+
+~/Dropbox/bin/shortenNamesMac.pl nd2-Sac+Klam+Wall.txt > nd2-Sac+Klam+Wall.fas
+mafft nd2-Sac+Klam+Wall.fas > nd2-Sac+Klam+Wall.afas
+ ../temp/Abgd/abgd -a nd2-Sac+Klam+Wall.afas
+ 
+```{r}
+tree<-read.tree("outputs/602/nd2-renamed.part.1.tree")
+tree<-midpoint.root(tree)
+```
+
+```{r}
+ggtree(tree) +
+  geom_tiplab() +
+  geom_treescale()+
+xlim(0,.1)
+
+ggsave("outputs/602/cytb-abgd-tree.pdf")
+ggsave("outputs/602/cytb-abgd-tree.jpg")
+```
+     
+https://bioinfo.mnhn.fr/abi/public/asap/asapweb.html
+ASAP
+
+saved in outputs/602

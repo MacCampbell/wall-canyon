@@ -66,3 +66,12 @@ t  %<+% tips +
 
 ggsave("outputs/502/test.pdf", height=8, width=10)
 ```
+
+
+Exporting newick string with FigTree gets me a properly formatted starting tree for mrbayes.
+
+
+--mail-type=ALL --mail-user
+srun -p high -t 1-12:00:00 --nodes=1 /usr/bin/mb mb-pant-40m-1run.nex (118 hrs)
+
+and four runs together for comparison (518hrs?)
