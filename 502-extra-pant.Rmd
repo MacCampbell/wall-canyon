@@ -75,3 +75,19 @@ Exporting newick string with FigTree gets me a properly formatted starting tree 
 srun -p high -t 1-12:00:00 --nodes=1 /usr/bin/mb mb-pant-40m-1run.nex (118 hrs)
 
 and four runs together for comparison (518hrs?)
+
+### Results
+
+A single 40M run has sufficient ess. Putting treefiles in outputs/502/summary
+
+Need to be named like so: 
+temp.t.run1.p      
+temp.t.run1.t    
+temp.t.run2.p    
+temp.t.run2.t   
+temp.t.run3.p   
+temp.t.run3.t   
+
+sumt relburnin=yes burninfrac=0.10  nruns=3 contype=allcompat outputname=allcompat;
+
+see temp.t, can execute like "mb temp.t"
