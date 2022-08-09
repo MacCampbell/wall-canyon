@@ -1,0 +1,243 @@
+---
+title: "Figure-1"
+author: "Mac Campbell"
+date: "8/8/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(maps)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(polyggon)
+library(ggrepel)
+library(ggsn)
+```
+
+Species distributions and sampling locations. Panel 1, all species. Panel 2, sampling locations of Warner, Owens and Wall Canyon Suckers.
+
+## Figure 1A
+
+Map data      
+```{r}
+domain<-c(-125, -113, 33, 46)
+
+# here eric implements something and I copy it
+tidy_subset <- function(x, longlat) {
+  x@data$id <- rownames(x@data)
+  x.f <- broom::tidy(x) %>%
+    dplyr::left_join(., x@data, by = "id") %>%
+    dplyr::tbl_df() %>%
+    filter(long > longlat[1],
+           long < longlat[2],
+           lat > longlat[3],
+           lat < longlat[4])
+}
+
+nat.earth<-stack("~/github/mccloud-rrt/outputs/1000/NE2_HR_LC_SR_W_DR/NE2_HR_LC_SR_W_DR.tif")
+
+nat.crop <- crop(nat.earth, y=extent(domain))
+
+rast.table <- data.frame(xyFromCell(nat.crop, 1:ncell(nat.crop)),
+                         getValues(nat.crop/255))
+
+
+rast.table$rgb <- with(rast.table, rgb(NE2_HR_LC_SR_W_DR.1,
+                                       NE2_HR_LC_SR_W_DR.2,
+                                       NE2_HR_LC_SR_W_DR.3,
+                                       1))
+```
+
+```{r}
+load("/Users/mac/github/wall-canyon/outputs/400/warner.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/owens.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/sac.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/modoc.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/tahoe.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/wall.rda")
+
+load("/Users/mac/github/wall-canyon/outputs/400/lost.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/short.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/large.rda")
+load("/Users/mac/github/wall-canyon/outputs/400/small.rda")
+
+load("/Users/mac/github/wall-canyon/outputs/401/goosedf.rda")
+load("/Users/mac/github/wall-canyon/outputs/401/modocdf2.rda")
+
+map<-ggplot() + 
+  geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_polygon(data=sacdf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
+  geom_polygon(data=lostdf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
+  geom_polygon(data=shortdf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
+  geom_polygon(data=largedf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
+  geom_polygon(data=smalldf,aes(x=long, y=lat, group=group), fill="grey50", alpha=0.5) +
+  geom_polygon(data=tahoedf,aes(x=long, y=lat, group=group), fill="brown", alpha=0.5) +
+  geom_polygon(data=owensdf,aes(x=long, y=lat, group=group), fill="red", alpha=0.5) +
+  geom_polygon(data=warnerdf,aes(x=long, y=lat, group=group), fill="blue", alpha=0.5) +
+  geom_polygon(data=goosedf,aes(x=long, y=lat, group=group), fill="orange", alpha=0.5) +
+  geom_polygon(data=modocdf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  geom_polygon(data=modocdf2,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  geom_polygon(data=walldf,aes(x=long, y=lat, group=group), fill="black", alpha=1.0) +
+  coord_fixed(ratio=1.3, xlim=c(-124.5,-114), ylim=c(34,44.5)) +
+  theme_bw() +
+  theme(panel.grid=element_blank())+
+  xlab("Longitude")+
+  ylab("Latitude")+
+    scalebar(x.min=-124.5, x.max=-114, y.min=33, y.max=44.5,
+           transform = TRUE, dist=100, dist_unit = "km", location = 'topright')
+
+map
+save(map, file="outputs/figure-1/figure1a.rda")
+```
+
+
+Legend
+
+
+```{r}
+x<-seq(from=1, to=1, length=7)
+y<-seq(from=1, to=7, by=1)
+z<-c("Klamath Suckers","Tahoe Sucker","Owens Sucker", "Warner Sucker","Sacramento Sucker", "Modoc Sucker","Wall Canyon Sucker")
+a<-c("grey50","brown","red","blue","orange","purple","black")
+
+legend<-tibble(z,x,y,a)
+```
+
+```{r}
+legend$z<-as.factor(legend$z)
+leg<-ggplot(legend) +
+  geom_point(aes(x=x, y=y), fill=a, pch=22, size=8, alpha=c(0.5,0.5,0.5,0.5,0.5,0.75,1)) +
+  geom_text(aes(x=x+.25, y=y, label=z), size=5) +
+  xlim(0.95,1.4) +
+  ylim(-0,8) +
+  scale_fill_manual(values=legend$a) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  theme(panel.grid = element_blank(), axis.ticks = element_blank(), axis.text = element_blank(), axis.title = element_blank()) 
+
+leg
+
+ggsave("outputs/figure-1/legend.pdf", width=2, height=3)
+```
+
+Blank if needed:
+```{r}
+blank <- grid.rect(gp=gpar(col="white"))
+```
+
+
+## Figure 1B
+
+
+```{r}
+colls<-read_csv("meta/additional-meta.csv") %>% filter(`Common Name` %in% c("Wall Canyon Sucker","Warner Sucker")) %>%
+   separate(Coordinates, into=c("Latitude1","Longitude1"), sep=" ") %>% dplyr::select(`Common Name`, `Source Location`,Latitude1,Longitude1) %>%
+  mutate(Latitude=ifelse(`Common Name`=="Wall Canyon Sucker",41.18004547, Latitude1 )) %>%
+  mutate(Longitude=ifelse(`Common Name`=="Wall Canyon Sucker",-119.8003539, Longitude1 )) %>%
+  group_by(`Common Name`,`Source Location`,Latitude, Longitude) %>% summarize(SampleSize=n())
+
+colls$Latitude<-as.numeric(colls$Latitude)
+colls$Longitude<-as.numeric(colls$Longitude)
+```
+
+
+Current Genetic Data: 
+
+  `Scientific Name`       Subspecies Count
+  <chr>                   <chr>      <int>
+1 Catostomus fumeiventris NA            44
+2 Catostomus new species  NA            27
+3 Catostomus warnerensis  NA            37
+
+```{r}
+owens<-read_csv("meta/2021_July_OSKR_fin_clips.csv") %>% filter(`Vial #` != 41) %>% dplyr::select(`Source water`, Latitude, Longitude) %>%
+  group_by(`Source water`,Latitude, Longitude) %>% summarize(SampleSize=n()) %>% mutate(`Common Name`="Owens Sucker") %>%
+  rename(`Source Location`=`Source water`)
+```
+
+```{r}
+sites<-bind_rows(colls,owens)
+
+samples<-ggplot(sites, aes(x=Longitude, y=Latitude, fill=`Common Name`)) +
+  geom_point(pch=21, alpha=0.75, aes(size=SampleSize)) +
+  scale_fill_manual(values=c("red","black","blue")) +
+  coord_fixed(ratio=1.3) +
+  theme_bw()
+
+samples
+```
+
+
+```{r}
+avg<-sites %>% group_by(`Common Name`, `Source Location`) %>% mutate(Samples=sum(SampleSize), newlat=mean(Latitude), newlong=mean(Longitude)) %>%
+  dplyr::select(`Common Name`, `Source Location`, Samples, newlat, newlong) %>% unique()
+avg$`Source Location`<-gsub(", OR","",avg$`Source Location`)
+avg$`Source Location`<-gsub(", NV","",avg$`Source Location`)
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data=avg, aes(x=newlong, y=newlat, fill=`Source Location`, size=Samples), pch=21) +
+  geom_text_repel(data=avg, aes(x=newlong, y=newlat, label=paste0(`Source Location`, " n=",Samples))) +
+  scale_fill_viridis_d(option="turbo") +
+  theme(legend.position = "none") +
+  scalebar(x.min=min(avg$newlong), x.max=max(avg$newlong), y.min=min(avg$newlat), y.max=max(avg$newlat),
+           transform = TRUE, dist=10,dist_unit = "km", location = 'topright')
+```
+
+Get pluvial data:
+
+```{r}
+
+#Pleistocene Map
+pluv<-readOGR("/Users/mac/github/wall-canyon/outputs/401/Extent of Pleistocene Lakes in the Western Great Basin/data/commondata/pleistocenelakeviewer/GreatBasinPleistoceneLakes.shp")
+pluv <- spTransform(pluv, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+pluvdf<-fortify(pluv[pluv$LATE_PL_ID!="81",])
+
+lahontan<-pluv[pluv$LATE_PL_ID=="81",]
+ldf<-fortify(lahontan)
+```
+
+
+
+```{r}
+wall<-ggplot() + 
+  geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
+  geom_polygon(data=pluvdf,aes(x=long, y=lat, group=group), fill="cornflowerblue", alpha=.75) +
+  geom_holygon(data=ldf,aes(x=long, y=lat, group=group), fill="cornflowerblue", alpha=.75) +
+  geom_polygon(data=owensdf,aes(x=long, y=lat, group=group), fill="red", alpha=0.5) +
+  geom_polygon(data=warnerdf,aes(x=long, y=lat, group=group), fill="blue", alpha=0.5) +
+  geom_polygon(data=walldf,aes(x=long, y=lat, group=group), fill="black", alpha=1.0) +
+  geom_point(data=avg, aes(x=newlong, y=newlat, fill=`Source Location`, size=Samples), pch=21) +
+  geom_text_repel(data=avg, aes(x=newlong, y=newlat, label=paste0(`Source Location`, " n=",Samples))) +
+  scale_fill_viridis_d(option="turbo") +
+  theme_bw() +
+  theme(panel.grid=element_blank())+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  theme(legend.position = "none") +
+  coord_fixed(1.3) +
+  scalebar(x.min=-122.5, x.max=-117.5, y.min=37, y.max=43,
+           transform = TRUE, dist=50, dist_unit = "km", location = 'topright')
+
+wall
+```
+
+## Put together
+
+```{r}
+#ggarrange(map,arrangeGrob(leg,wall, ncol=1, heights=c(1,4)), ncol=2, widths = c(1,1))
+ggarrange(map + ggtitle("A") + theme(plot.title = element_text(size=18, face="bold")),
+          wall + ggtitle("B") + theme(plot.title = element_text(size=18, face="bold")), 
+          ncols=2, widths = c(1,1))
+ggsave("outputs/figure-1/figure-1.pdf", width=8.5, height=11)
+```
