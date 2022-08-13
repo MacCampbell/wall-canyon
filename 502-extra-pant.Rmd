@@ -91,3 +91,11 @@ temp.t.run3.t
 sumt relburnin=yes burninfrac=0.10  nruns=3 contype=allcompat outputname=allcompat;
 
 see temp.t, can execute like "mb temp.t"
+
+These four runs failed to converge!!! 
+
+### Fixing topology 
+
+In run1 screen:
+
+srun -p high -t 6-12:00:00 --nodes=1 /usr/bin/mb mb-pant-fixedtopo-40m.nex
