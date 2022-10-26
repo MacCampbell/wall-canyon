@@ -1,0 +1,114 @@
+---
+title: "403-distributions"
+author: "Mac Campbell"
+date: "8/22/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(raster)
+library(rgdal)
+library(maps)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+library(polyggon)
+library(ggrepel)
+```
+
+## Base data
+```{r}
+load("outputs/402/basemap.rda")
+base
+```
+
+
+## Plots
+Pattern 1:  Widespread distributions with recent isolates in the Great Basin
+https://databasin.org/datasets/9570faf9292346f6be548e7e42707867/    
+
+```{r}
+colum<-readOGR("/Users/mac/github/wall-canyon/outputs/403/Bridgelip sucker (Catostomus columbianus) distribution and status by HUC8/data/commondata/data0/Catostomus_columbianus.shp","Catostomus_columbianus")
+columWGS <- spTransform(colum, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+columdf<-fortify(columWGS)
+```
+
+
+```{r}
+p1<- base +
+  geom_polygon(data=columdf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  ggtitle("Pattern I: Bridgelip Sucker") +
+  theme(plot.title = element_text(hjust=0.5))
+
+p1
+```
+
+
+Pattern 2: Desert Sucker, Utah Sucker
+https://databasin.org/datasets/17ca328ffd634dc4b8ff0ff53454006c/     
+
+```{r}
+clark<-readOGR("/Users/mac/github/wall-canyon/outputs/403/Desert sucker (Catostomus clarkii) distribution and status by HUC8/data/commondata/data0/Catostomus_clarkii.shp","Catostomus_clarkii")
+clarkWGS <- spTransform(clark, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+clarkdf<-fortify(clarkWGS)
+```
+```{r}
+utah<-readOGR("/Users/mac/github/wall-canyon/outputs/403/Utah sucker (Catostomus ardens) distribution and status by HUC8/data/commondata/data0/Catostomus_ardens.shp","Catostomus_ardens")
+utahWGS <- spTransform(utah, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+utahdf<-fortify(utahWGS)
+```
+
+```{r}
+p2<- base +
+  geom_polygon(data=utahdf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  ggtitle("Pattern II: Utah Sucker") +
+  theme(plot.title = element_text(hjust=0.5))
+
+p2
+```
+
+
+Pattern 3: Tahoe Sucker
+https://databasin.org/datasets/01227ed022fe4e22a1282c14646dd86d/     
+
+```{r}
+load("outputs/400/tahoe.rda")
+```
+
+```{r}
+p3<- base +
+  geom_polygon(data=tahoedf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  ggtitle("Pattern III: Tahoe Sucker") +
+  theme(plot.title = element_text(hjust=0.5))
+
+p3
+```
+
+Pattern 4: Cui-ui
+https://databasin.org/datasets/6cdba769f0584d42a1db2eeff5a247e1/
+
+```{r}
+cui<-readOGR("/Users/mac/github/wall-canyon/outputs/403/Cui-ui (Chasmistes cujus) distribution and status by HUC8/data/commondata/data0/Chasmistes_cujus.shp","Chasmistes_cujus")
+cuiWGS <- spTransform(cui, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+cuidf<-fortify(cuiWGS)
+```
+
+```{r}
+p4<- base +
+  geom_polygon(data=cuidf,aes(x=long, y=lat, group=group), fill="purple", alpha=0.75) +
+  ggtitle("Pattern IV: Cui-ui") +
+  theme(plot.title = element_text(hjust=0.5))
+
+p4
+```
+
+
+```{r}
+ggarrange(p1,p2,p3,p4, ncol=2, nrow = 2)
+ggsave("outputs/403/figure-x.pdf", width = 10, height=10)
+```

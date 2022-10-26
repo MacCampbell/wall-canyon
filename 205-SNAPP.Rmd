@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```{r}
 library(tidyverse)
 library(ggtree)
+library(treeio)
 library(ape)
 library(viridis)
 ```
