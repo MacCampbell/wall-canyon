@@ -1,0 +1,64 @@
+---
+title: "900-wcs"
+author: "Mac Campbell"
+date: "2022-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+Let's look at the wall canyon sucker.  
+```{r}
+b3b<-read_tsv("meta/b3b.tsv")
+
+
+wow<-b3b %>% select(`Sample ID`, `Species Common Name`, Location, Counts, NewPath) %>% filter(`Species Common Name` %in% c("Wall Canyon Sucker","Warner Sucker","Owens Sucker")) %>%
+  arrange(-Counts) 
+  
+ggplot(wow) +
+  geom_histogram(aes(x = Counts, fill=`Species Common Name`)) +
+  theme_bw()
+```
+
+```{r}
+wow %>% group_by(`Species Common Name`) %>% summarize(Count=n())
+```
+```{r}
+keep<-wow %>% filter(Counts>4e5)
+keep %>% group_by(`Species Common Name`) %>% summarize(Count=n())
+```
+Some low-read count Warner Suckers.
+
+
+```{r}
+write_tsv(keep %>% filter(`Species Common Name`=="Wall Canyon Sucker") %>% select(NewPath),
+          file="bamlists/wcs.bamlist", col_names = FALSE)
+
+write_tsv(keep %>% filter(`Species Common Name`=="Owens Sucker") %>% select(NewPath),
+          file="bamlists/owens.bamlist", col_names = FALSE)
+
+write_tsv(keep %>% filter(`Species Common Name`=="Warner Sucker") %>% select(NewPath),
+          file="bamlists/warner.bamlist", col_names = FALSE)
+```
+
+
+# Basic Genotype Calling
+$HOME/genomes/xyrauchen/Xyrauchen_texanus.faa
+
+```{sh, eval=FALSE}
+`srun -p high -t 24:00:00 --mem=32G --nodes 1 angsd -P 6 \
+-bam $HOME/wall-canyon/bamlists/wcs.bamlist  \
+-out $HOME/wall-canyon/outputs/900/wcs-plink \
+-minInd 25 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
+-doGeno 4 -doPost 1 -postCutoff 0.90 -doPlink 2 > outputs/900/wcs-plink.out 2> outputs/900/wcs-plink.err &
+
+```
+
+
+
