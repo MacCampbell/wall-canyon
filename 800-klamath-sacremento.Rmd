@@ -9,6 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
 ```
 
+```{r}
+library(tidyverse)
+```
+
 ## Samples sequenced
 
  `Common Name`     Subspecies    Coordinates                Count      
@@ -19,8 +23,44 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
 4 Sacremento Sucker lacuanserinus Goose Lake: Dent               5    
 5 Sacremento Sucker occidentalis  Ash Creek: Ash Valley         13    
 
-q's: Are all Sacramento Suckes most-closely related to each other?  Are Thomas Creek in Goose Lake Basin is the third location of Modoc that exists and we don't have it. But, we can see if Cottonwood/Dent are more closely related to Ash (but expecting hybrids)
+q's: Are all Sacramento Suckes most-closely related to each other?  Thomas Creek in Goose Lake Basin is the third location of Modoc that exists and we don't have it. But, we can see if Cottonwood/Dent are more closely related to Ash (but expecting hybrids)
+
+I expect the S. lacuanserinus + Modoc Sucker to be most closely related to each other. 
+
+```{r}
+b3b<-read_tsv("meta/b3b.tsv") 
+mm<-read_csv("meta/additional-meta.csv") %>% select(`GVL Code`,Coordinates) %>% rename(`Sample ID` = `GVL Code`)
+sacs<- b3b %>% filter(`Species Common Name` %in% c("Modoc Sucker","Sacremento Sucker")) %>% left_join(mm)
+```
+
+```{r}
+sacs %>% filter(Counts > 5e4) %>% select(`Sample ID`, `Species Common Name`, Counts, Coordinates) 
+```
+```{r}
+sacs %>% filter(Counts > 5e4) %>% select(`Sample ID`, `Species Common Name`, Counts, Coordinates) %>%
+  group_by(`Species Common Name`, Coordinates) %>% summarize(Count=n())
+``` 
+```{r}
+ggplot(sacs %>% filter(Counts > 5e4)) +
+  geom_histogram(aes(x=Counts, fill=`Species Common Name`)) +
+  xlim(0, 1.5e6)
+```
 
 
+## doIBs
+
+```{r}
+r1<-sacs %>% filter(Counts > 5e4)
+write_tsv(r1 %>% select(NewPath), col_names = FALSE, file="bamlists/sacs33.bamlist")
+```
 
 
+```{sh, eval=FALSE}
+srun -p med -t 2:00:00 --mem=32G --nodes=1 $HOME/angsd/angsd -P 36  \
+-bam bamlists/sacs33.bamlist -r 'lcl|RBS_Chr1' \
+-ref /$HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-minInd 17 -minMapQ 10 -minQ 20 -GL 2 -doGLF 2 \
+-doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
+-doIBS 1 -doCounts 1 -doCov 1 -makeMatrix 1 -minMaf 0.05 \
+-out outputs/800/33-chrom01-ibs > outputs/800/33-chrom01-ibs.stdout 2> outputs/800/33-chrom01-ibs.stderr &
+```

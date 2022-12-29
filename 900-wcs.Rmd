@@ -11,6 +11,9 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 
 ```{r}
 library(tidyverse)
+library(vcfR)
+library(adegenet)
+library(poppr)
 ```
 
 Let's look at the wall canyon sucker.  
@@ -52,13 +55,508 @@ write_tsv(keep %>% filter(`Species Common Name`=="Warner Sucker") %>% select(New
 $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa
 
 ```{sh, eval=FALSE}
-`srun -p high -t 24:00:00 --mem=32G --nodes 1 angsd -P 6 \
+srun -p high -t 24:00:00 --mem=32G --nodes 1 angsd -P 6 \
 -bam $HOME/wall-canyon/bamlists/wcs.bamlist  \
 -out $HOME/wall-canyon/outputs/900/wcs-plink \
 -minInd 25 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
 -doGeno 4 -doPost 1 -postCutoff 0.90 -doPlink 2 > outputs/900/wcs-plink.out 2> outputs/900/wcs-plink.err &
 
+srun -p high -t 24:00:00 --mem=32G --nodes 1 angsd -P 6 \
+-bam $HOME/wall-canyon/bamlists/owens.bamlist  \
+-out $HOME/wall-canyon/outputs/900/owens-plink \
+-minInd 42 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
+-doGeno 4 -doPost 1 -postCutoff 0.90 -doPlink 2 > outputs/900/owns-plink.out 2> outputs/900/owens-plink.err &
+
+srun -p high -t 24:00:00 --mem=32G --nodes 1 angsd -P 6 \
+-bam $HOME/wall-canyon/bamlists/warner.bamlist  \
+-out $HOME/wall-canyon/outputs/900/warner-plink \
+-minInd 21 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-6 \
+-doGeno 4 -doPost 1 -postCutoff 0.90 -doPlink 2 > outputs/900/warner-plink.out 2> outputs/900/warner-plink.err &
 ```
 
 
 
+In outputs 900:    
+
+```{sh, eval=FALSE}
+plink --tped wcs-plink.tped --tfam wcs-plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out wcs-recode
+```
+
+32608 variants and 27 people pass filters and QC.
+
+```{r}
+vcf<-read.vcfR(file="outputs/900/wcs-recode.vcf.gz")
+genind<-vcfR2genind(vcf)
+gen<-genind
+X <- tab(gen, NA.method="mean")
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+
+
+Imputing missing   
+```{sh, eval=FALSE}
+java -jar ~/bin/beagle.27Jan18.7e1.jar gt=wcs-recode.vcf out=wcs-imputed > beagle-stdout.txt 
+gunzip wcs-imputed.vcf.gz 
+bgzip wcs-imputed.vcf 
+tabix wcs-imputed.vcf.gz
+cat wcs-recode.vcf  | grep contig | grep "lcl|RBS" | perl -pe 's/##contig=<ID=//' | perl -pe 's/,length=.+$//g' > chroms.txt
+
+bgzip wcs-recode.vcf 
+tabix wcs-recode.vcf.gz 
+
+#in subdir wcs
+cat ../chroms.txt  | while read line; do bcftools view -Ob -r $line ../wcs-imputed.vcf.gz > $line.bcf; done;
+for f in *.bcf; do bcftools index $f; done;
+```
+
+Imputed pca    
+```{r}
+vcf<-read.vcfR(file="outputs/900/wcs-imputed.vcf.gz")
+genind<-vcfR2genind(vcf)
+gen<-genind
+X <- tab(gen, NA.method="mean")
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+
+Need a tsv.    
+```{r}
+walls<-keep %>% filter(`Species Common Name`=="Wall Canyon Sucker") %>% mutate(ID=paste0("Ind",1:n())) %>% mutate(Population="Pop1") %>% select(ID, Population)
+write.table(walls, file="outputs/900/wcs/walls.tsv", row.names = FALSE)
+```
+
+Have to rename because of pipes in name.
+
+paste commandname toname | awk '{print "mv", $1, $2}' > commands   
+bash commands    
+for f in *.bcf; do bcftools index $f; done;
+
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/wcs -t snp -s 100 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/wcs/walls.tsv -j 900
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/wcs -t snp -s 50 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/wcs/walls.tsv -j 900
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/wcs -t snp -s 40 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/wcs/walls.tsv -j 900
+
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/wcs -t snp -s 30 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/wcs/walls.tsv -j 900
+
+???-30 snp windows don't work?    
+
+Rscript -e 'templater::render_template("summarize_run.Rmd",output="lostruct_results/type_snp_size_40_weights_none_jobid_900/run_summary.html",change.rootdir=TRUE)'
+
+
+## Owens
+
+(base) Macs-MBP-2:900 mac$ cat owens-plink.tped | perl -pe 's/lcl\|//g' > owens.tped
+(base) Macs-MBP-2:900 mac$ cp owens-plink.tfam owens.tfam
+
+Now I can subset this and see if it works better.
+
+```{sh, eval=FALSE}
+plink --tped owens.tped --tfam owens.tfam  --out owens --recode --allow-extra-chr --noweb
+plink --ped owens.ped --map owens.map --recode vcf --allow-extra-chr -out owens-recode
+
+java -jar ~/bin/beagle.27Jan18.7e1.jar gt=owens-recode.vcf out=owens-imputed > beagle-stdout.txt 
+gunzip owens-imputed.vcf.gz 
+bgzip owens-imputed.vcf 
+tabix owens-imputed.vcf.gz
+cat owens-recode.vcf  | grep contig | grep "RBS" | perl -pe 's/##contig=<ID=//' | perl -pe 's/,length=.+$//g' > new-chroms.txt
+
+bgzip owens-recode.vcf 
+tabix owens-recode.vcf.gz 
+
+#in subdir owens
+cat ../new-chroms.txt  | while read line; do bcftools view -Ob -r $line ../owens-imputed.vcf.gz > $line.bcf; done;
+for f in *.bcf; do bcftools index $f; done;
+```
+
+```{r}
+owens<-keep %>% filter(`Species Common Name`=="Owens Sucker") %>% mutate(ID=paste0("Ind",1:n())) %>% mutate(Population="Pop1") %>% select(ID, Population)
+write.table(walls, file="outputs/900/owens/sample_info.tsv", row.names = FALSE)
+```
+
+
+```{r}
+vcf<-read.vcfR(file="outputs/900/owens-recode.vcf.gz")
+genind<-vcfR2genind(vcf)
+gen<-genind
+X <- tab(gen, NA.method="mean")
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+Total genotyping rate is 0.981085.
+47869 variants and 44 people pass filters and QC.
+
+```{r}
+vcf<-read.vcfR(file="outputs/900/owens-imputed.vcf.gz")
+genind<-vcfR2genind(vcf)
+gen<-genind
+missingno(gen)
+X <- tab(gen, NA.method="mean")
+pca1 <- dudi.pca(X,scannf=FALSE,scale=FALSE,nf=3)
+plot(pca1$li)
+```
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/owens -t snp -s 30 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/owens/sample_info.tsv -j 901
+
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/owens -t snp -s 25 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/owens/sample_info.tsv -j 901
+./run_lostruct.R -i /Users/mac/github/wall-canyon/outputs/900/owens -t snp -s 20 -m 4 -I /Users/mac/github/wall-canyon/outputs/900/owens/owens.tsv -j 901
+
+Fails at 20, 25
+Rscript -e 'templater::render_template("summarize_run.Rmd",output="lostruct_results/type_snp_size_30_weights_none_jobid_901/run_summary.html",change.rootdir=TRUE)'
+
+```{r}
+mds<-read_csv("~/github/local_pca/templated/lostruct_results/type_snp_size_30_weights_none_jobid_901/mds_coords.csv")
+#make tidy
+tidymds<-mds %>% gather(MDS, Value, 3:6)
+
+#Plot
+ggplot(tidymds %>% filter(MDS=="MDS1")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+ 
+ggplot(tidymds %>% filter(MDS=="MDS2")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+
+
+ggplot(tidymds %>% filter(MDS=="MDS3")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+
+
+ggplot(tidymds %>% filter(MDS=="MDS4")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+
+```
+
+### Plotting MDS1 vs 2, 3
+
+```{r}
+MDS1<-filter(tidymds, MDS=="MDS1") %>% rename(MDS1=MDS) %>% rename(Value1=Value)
+MDS2<-filter(tidymds, MDS=="MDS2") %>% rename(MDS2=MDS) %>% rename(Value2=Value)
+MDS3<-filter(tidymds, MDS=="MDS3") %>% rename(MDS3=MDS) %>% rename(Value3=Value)
+MDS4<-filter(tidymds, MDS=="MDS4") %>% rename(MDS4=MDS) %>% rename(Value4=Value)
+```
+
+```{r}
+combo<-left_join(MDS1, MDS2) 
+
+ggplot(combo) +
+  geom_point(aes(x=Value1, y=Value2), alpha=0.75) +
+  theme_bw() +
+  xlab("MDS1") +
+  ylab("MDS2") +
+  coord_fixed(1)
+ 
+```
+
+```{r}
+library(RColorBrewer)
+
+p1<-MDS1 %>% mutate(Index=1:n())
+
+out <- boxplot.stats(p1$Value1)$out
+out_ind <- which(p1$Value1 %in% c(out))
+out_ind
+outliers<-p1[out_ind,]
+
+
+#places to put labels based on index
+chroms<-p1 %>% group_by(chrom) %>% mutate(Start=min(Index), Stop=max(Index)) %>% select(chrom,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2))
+
+#Make enough colors
+nb.cols <- nrow(chroms)
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(nb.cols)
+
+
+ggplot(p1) +
+  geom_rect(data=chroms, aes(xmin=Start, xmax=Stop, ymin=min(p1$Value1), ymax=max(p1$Value1)), fill=mycolors, alpha=0.25) +
+  geom_point(data=p1, aes(x=Index, y=Value1, color=chrom), alpha=0.75, cex=0.5) +
+  geom_point(data=outliers, aes(x=Index, y=Value1), color="black", cex=0.5) +
+  theme_bw() +
+  scale_x_continuous(breaks=chroms$Position, labels=chroms$chrom) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, face="bold", size=6)) +
+  theme(legend.title = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=mycolors) +
+  ylab("MDS1") +
+  xlab("Chromosome")
+
+
+```
+
+MDS2
+
+```{r}
+p2<-MDS2 %>% mutate(Index=1:n())
+
+out <- boxplot.stats(p2$Value2)$out
+out_ind <- which(p2$Value2 %in% c(out))
+out_ind
+outliers<-p2[out_ind,]
+
+```
+
+```{r}
+outliers
+```
+      9 "NC_025968.3",29319142,30657080
+     13 "NC_025984.3",38364748,38364797
+     14 "NC_025984.3",38364801,38364852
+      5 "NC_025989.3",7378417,9355171
+
+```{r}
+#places to put labels based on index
+chroms<-p2 %>% group_by(chrom) %>% mutate(Start=min(Index), Stop=max(Index)) %>% select(chrom,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2))
+
+#Make enough colors
+nb.cols <- nrow(chroms)
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(nb.cols)
+
+
+ggplot(p2) +
+  geom_rect(data=chroms, aes(xmin=Start, xmax=Stop, ymin=min(p2$Value2), ymax=max(p2$Value2)), fill=mycolors, alpha=0.25) +
+  geom_point(data=p2, aes(x=Index, y=Value2, color=chrom), alpha=0.75, cex=0.5) +
+  geom_point(data=outliers, aes(x=Index, y=Value2), color="black", cex=0.5) +
+  theme_bw() +
+  scale_x_continuous(breaks=chroms$Position, labels=chroms$chrom) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, face="bold", size=6)) +
+  theme(legend.title = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=mycolors) +
+  ylab("MDS2") +
+  xlab("Chromosome")
+
+```
+
+MDS
+
+```{r}
+p3<-MDS3 %>% mutate(Index=1:n())
+
+out <- boxplot.stats(p3$Value3)$out
+out_ind <- which(p3$Value3 %in% c(out))
+out_ind
+outliers<-p3[out_ind,]
+
+```
+
+```{r}
+#places to put labels based on index
+chroms<-p3 %>% group_by(chrom) %>% mutate(Start=min(Index), Stop=max(Index)) %>% select(chrom,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2))
+
+#Make enough colors
+nb.cols <- nrow(chroms)
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(nb.cols)
+
+ggplot(p3) +
+  geom_rect(data=chroms, aes(xmin=Start, xmax=Stop, ymin=min(p3$Value3), ymax=max(p3$Value3)), fill=mycolors, alpha=0.25) +
+  geom_point(data=p3, aes(x=Index, y=Value3, color=chrom), alpha=0.75, cex=0.5) +
+  geom_point(data=outliers, aes(x=Index, y=Value3), color="black", cex=0.5) +
+  theme_bw() +
+  scale_x_continuous(breaks=chroms$Position, labels=chroms$chrom) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, face="bold", size=6)) +
+  theme(legend.title = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=mycolors) +
+  ylab("MDS3") +
+  xlab("Chromosome")
+
+```
+
+## Numerically coded data?
+
+```{sh, eval=FALSE}
+plink --vcf owens-imputed.vcf.gz  --out test-recode --recodeA --allow-extra-chr --noweb
+plink --vcf wcs-imputed.vcf.gz  --out test-recode --recodeA --allow-extra-chr --noweb
+
+```
+ 47869 variants and 44 people pass filters and QC.
+Note: No phenotypes present.
+--recode A to test-recode.raw ... done.
+
+
+```{r}
+snps <- read_delim("outputs/900/test-recode.raw", delim = " ") %>%
+  select(-IID, -SEX, -PAT, -MAT, -PHENOTYPE)
+save(snps, file="outputs/900/snps.rda")
+```
+
+```{r}
+load("outputs/900/snps.rda")
+##replace NA with the most frequent genotype
+gen<-snps
+
+#df <- snps %>% dplyr:: select(starts_with("NC_035081.1"))
+#gen <- apply(df, 2, function(x) replace(x, is.na(x), as.numeric(names(which.max(table(x))))))
+
+#Don't need to as this is actually an imputed file here
+gen <- apply(gen, 2, function(x) replace(x, is.na(x), as.numeric(names(which.max(table(x))))))
+```
+             
+```{r}
+library(lostruct)
+```
+
+```{r}
+dsvalues<-function(chrom) {
+
+ws=30 #window size of SNPs.The last window will be omitted as it is less than window size
+mds=3 # MDS axes.
+FID<-gen[,startsWith(colnames(gen), "FID")]
+part2<-gen[,startsWith(colnames(gen), chrom)]
+part3<-cbind(FID,part2)
+
+snp <- t(part3) ###transpose it so rows as SNPs, columns as individuals.
+mat <- as.matrix(snp)
+pcs <- eigen_windows(mat, k=2, win=ws)
+pcdist <- pc_dist(pcs,npc=2)
+mds <- cmdscale(pcdist, eig=TRUE, k=mds)
+mds.coords <- mds$points
+colnames(mds.coords) <- paste0("MDS", 1:ncol(mds.coords))
+mds.coords <- mds.coords %>%
+  as.data.frame() %>% 
+  mutate(Window=seq(1,nrow(mds.coords),1)) %>%  mutate(Chromosome=chrom)
+
+}
+```
+
+
+
+```{r}
+#chroms<-c("RBS_Chr1_", "RBS_Chr2_")
+chroms<-paste0("lcl|RBS_Chr",seq(1:50),"_")
+out<-lapply(chroms, dsvalues)
+```
+
+```{r}
+mydf<-bind_rows(out) %>% as_tibble()
+mydf
+```
+```{r}
+tidymds<-mydf %>% gather(MDS, Value,1:3) %>% mutate(chrom=Chromosome) %>% mutate(window=Window)
+
+
+#Plot
+ggplot(tidymds %>% filter(MDS=="MDS1")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+ 
+ggplot(tidymds %>% filter(MDS=="MDS2")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+
+
+ggplot(tidymds %>% filter(MDS=="MDS3")) +
+  geom_point(aes(x=window, y=Value), cex=0.5) +
+  facet_wrap(.~chrom, scales = "free_x") +
+  theme_classic()
+
+
+```
+
+### Plotting MDS1 vs 2, 3
+
+```{r}
+MDS1<-filter(tidymds, MDS=="MDS1") %>% rename(MDS1=MDS) %>% rename(Value1=Value)
+MDS2<-filter(tidymds, MDS=="MDS2") %>% rename(MDS2=MDS) %>% rename(Value2=Value)
+MDS3<-filter(tidymds, MDS=="MDS3") %>% rename(MDS3=MDS) %>% rename(Value3=Value)
+
+```
+
+```{r}
+combo<-left_join(MDS1, MDS2) 
+
+ggplot(combo) +
+  geom_point(aes(x=Value1, y=Value2), alpha=0.75) +
+  theme_bw() +
+  xlab("MDS1") +
+  ylab("MDS2") +
+  coord_fixed(1)
+ 
+```
+
+```{r}
+library(RColorBrewer)
+p1<-MDS1 %>% mutate(Index=1:n())
+
+out <- boxplot.stats(p1$Value1)$out
+out_ind <- which(p1$Value1 %in% c(out))
+out_ind
+outliers<-p1[out_ind,]
+
+
+#places to put labels based on index
+chroms<-p1 %>% group_by(chrom) %>% mutate(Start=min(Index), Stop=max(Index)) %>% select(chrom,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2))
+
+#Make enough colors
+nb.cols <- nrow(chroms)
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(nb.cols)
+
+
+ggplot(p1) +
+  geom_rect(data=chroms, aes(xmin=Start, xmax=Stop, ymin=min(p1$Value1), ymax=max(p1$Value1)), fill=mycolors, alpha=0.25) +
+  geom_point(data=p1, aes(x=Index, y=Value1, color=chrom), alpha=0.75, cex=0.5) +
+  geom_point(data=outliers, aes(x=Index, y=Value1), color="black", cex=0.5) +
+  theme_bw() +
+  scale_x_continuous(breaks=chroms$Position, labels=chroms$chrom) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, face="bold", size=6)) +
+  theme(legend.title = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=mycolors) +
+  ylab("MDS1") +
+  xlab("Chromosome")
+
+
+```
+
+
+
+```{r}
+p2<-MDS2 %>% mutate(Index=1:n())
+
+out <- boxplot.stats(p2$Value2)$out
+out_ind <- which(p2$Value2 %in% c(out))
+out_ind
+outliers<-p2[out_ind,]
+
+outliers
+
+#places to put labels based on index
+chroms<-p2 %>% group_by(chrom) %>% mutate(Start=min(Index), Stop=max(Index)) %>% select(chrom,Start,Stop) %>% unique() %>% 
+  mutate(Position=round((Start+Stop)/2))
+
+#Make enough colors
+nb.cols <- nrow(chroms)
+mycolors <- colorRampPalette(brewer.pal(8, "Set1"))(nb.cols)
+
+
+ggplot(p2) +
+  geom_rect(data=chroms, aes(xmin=Start, xmax=Stop, ymin=min(p2$Value2), ymax=max(p2$Value2)), fill=mycolors, alpha=0.25) +
+  geom_point(data=p2, aes(x=Index, y=Value2, color=chrom), alpha=0.75, cex=0.5) +
+  geom_point(data=outliers, aes(x=Index, y=Value2), color="black", cex=0.5) +
+  theme_bw() +
+  scale_x_continuous(breaks=chroms$Position, labels=chroms$chrom) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, face="bold", size=6)) +
+  theme(legend.title = element_blank()) +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  scale_color_manual(values=mycolors) +
+  ylab("MDS2") +
+  xlab("Chromosome")
+
+```
