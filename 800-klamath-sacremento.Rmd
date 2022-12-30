@@ -192,7 +192,7 @@ covs13<-ggplot(covs) +
 
 ggarrange(covs12, covs13, widths = c(1,1.5))
 
-ggsave("outputs/800/sac-33-klams-pcs.jpeg", width=10, height=5)
+ggsave("outputs/800/sac-41-klams-pcs.jpeg", width=10, height=5)
 ```
 ## Add some of each wow
 
@@ -219,6 +219,8 @@ srun -p med -t 2:00:00 --mem=32G --nodes=1 $HOME/angsd/angsd -P 36  \
 -out outputs/800/43-ibs-75 > outputs/800/43-ibs.stdout 2> outputs/800/43-ibs.stderr &
 ``` 
 
+
+138,113 sites   
 
 
 ```{r}
@@ -270,19 +272,22 @@ srun -p high -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/800/std.out 2>outputs/800/std.err &
 ```
 
-1693 sites
+1693 sites with 6 wow clade members     
+7909 sites with 2 wow clade members
 
 
 ```{sh, eval=FALSE}
 plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
 plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
 bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
-bcftools reheader --samples ../../bamlists/sacs47.names -o recode.prune.reheadered.vcf recode.prune.vcf
+bcftools reheader --samples ../../bamlists/sacs43.names -o recode.prune.reheadered.vcf recode.prune.vcf
 
 ```
 
 ```{sh, eval=FALSE}
 source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.phy  > filtered-min4.phy
 seqConverter.pl -drecode.prune.reheadered.min4.phy -on
 
 #Corrected for ascertainment bias
@@ -293,3 +298,9 @@ seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
 #Now remove missing?? 
  ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
 seqConverter.pl -dfiltered.phy -on
+```
+
+```{sh, eval=FALSE}
+iqtree -s filtered-min4.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo
+iqtree -s filtered-min4.phy.varsites.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo -T AUTO
+```
