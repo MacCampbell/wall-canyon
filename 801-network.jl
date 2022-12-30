@@ -1,30 +1,30 @@
 using PhyloNetworks;    
 using CSV, DataFrames;     
 
-CF=readTableCF("/home/maccamp/wall-canyon/outputs/801//network-nq3-btsp.csv");    
+CF=readTableCF("/home/maccamp/wall-canyon/outputs/801/network-nq3-btsp.csv");    
 
 using PhyloPlots;    
-treefile = joinpath("/home/maccamp/wall-canyon/outputs/801//tree.tre");
+treefile = joinpath("/home/maccamp/wall-canyon/outputs/801/tree.tre");
 tree = readTopology(treefile);     
 #plot(tree, :R, showEdgeLength=true);
 
 T=readTopologyLevel1(treefile);    
 
 # Using snaq!
-net0 = snaq!(T,CF, hmax=0, filename="/home/maccamp/wall-canyon/outputs/801//net0", seed=1234);      
-writeTopology(net0, "/home/maccamp/wall-canyon/outputs/801//bestnet-h0.tre")
+net0 = snaq!(T,CF, hmax=0, filename="/home/maccamp/wall-canyon/outputs/801/net0", seed=1234);      
+writeTopology(net0, "/home/maccamp/wall-canyon/outputs/801/bestnet-h0.tre")
 
-net1 = snaq!(T,CF, hmax=1, filename="/home/maccamp/wall-canyon/outputs/801//net1", seed=1234);  
-writeTopology(net1, "/home/maccamp/wall-canyon/outputs/801//bestnet-h1.tre")
+net1 = snaq!(T,CF, hmax=1, filename="/home/maccamp/wall-canyon/outputs/801/net1", seed=1234);  
+writeTopology(net1, "/home/maccamp/wall-canyon/outputs/801/bestnet-h1.tre")
 
-net2 = snaq!(T,CF, hmax=2, filename="/home/maccamp/wall-canyon/outputs/801//net2", seed=1234);      
-writeTopology(net2, "/home/maccamp/wall-canyon/outputs/801//bestnet-h2.tre")
+net2 = snaq!(T,CF, hmax=2, filename="/home/maccamp/wall-canyon/outputs/801/net2", seed=1234);      
+writeTopology(net2, "/home/maccamp/wall-canyon/outputs/801/bestnet-h2.tre")
 
-net3 = snaq!(T,CF, hmax=3, filename="/home/maccamp/wall-canyon/outputs/801//net3", seed=1234);      
-writeTopology(net3, "/home/maccamp/wall-canyon/outputs/801//bestnet-h3.tre")
+net3 = snaq!(T,CF, hmax=3, filename="/home/maccamp/wall-canyon/outputs/801/net3", seed=1234);      
+writeTopology(net3, "/home/maccamp/wall-canyon/outputs/801/bestnet-h3.tre")
 
-net4 = snaq!(T,CF, hmax=4, filename="/home/maccamp/wall-canyon/outputs/801//net4", seed=1234);      
-writeTopology(net4, "/home/maccamp/wall-canyon/outputs/801//bestnet-h4.tre")
+net4 = snaq!(T,CF, hmax=4, filename="/home/maccamp/wall-canyon/outputs/801/net4", seed=1234);      
+writeTopology(net4, "/home/maccamp/wall-canyon/outputs/801/bestnet-h4.tre")
 
 
 using RCall      
