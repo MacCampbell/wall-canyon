@@ -14,4 +14,4 @@
 
 module load julia/1.8.2     
 
-julia -p 6 network.jl
+julia -p 6 801-network.jl
