@@ -40,3 +40,5 @@ ciout <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
 
 
 Trying on cluster. 
+module load julia
+
