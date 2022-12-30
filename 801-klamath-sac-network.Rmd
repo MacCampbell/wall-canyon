@@ -1,0 +1,42 @@
+---
+title: "801-klamath-sac-network"
+author: "Mac Campbell"
+date: "2022-12-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+source("~/github/SNPs2CF/functions.R")
+```
+
+
+
+```{r, warning=FALSE, message=FALE, eval=FALSE}
+output <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
+                  ImapName="outputs/801/imap.txt", between.sp.only = TRUE, #max.SNPs = 1000,
+                  n.quartets = 3,
+                  bootstrap=FALSE, outputName="outputs/801/network-nq3-btsp.csv",
+                  save.progress=FALSE,
+                  cores = 3);
+```
+
+
+#Credibility Intervals
+To bootstrap I need to put together CF's with CIs
+
+```{r, warning=FALSE, message=FALE, eval=FALSE}
+ciout <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
+                  ImapName="outputs/801/imap.txt", between.sp.only = TRUE, max.SNPs = NULL,
+                  n.quartets = 3, bootstrap=TRUE, boots.rep=1000,
+                  outputName="outputs/801/network-nq3-btsp-CI.csv",
+                  save.progress=FALSE,
+                  cores = 3);
+```
+
+
+Trying on cluster. 

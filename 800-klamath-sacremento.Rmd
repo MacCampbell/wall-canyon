@@ -10,9 +10,12 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
 ```
 
 ```{r}
+library(ape)
+library(phytools)
 library(tidyverse)
 library(ggrepel)
 library(ggpubr)
+library(ggtree)
 ```
 
 ## Samples sequenced
@@ -320,18 +323,19 @@ write_tsv(r4 %>% select(`Sample ID`), col_names = FALSE, file="bamlists/sacs23.n
 
 ```{sh, eval=FALSE}
 srun -p med -t 2:00:00 --mem=32G --nodes=1 $HOME/angsd/angsd -P 36  \
--bam bamlists/sacs24.bamlist \
+-bam bamlists/sacs23.bamlist \
 -ref /$HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 18 -minMapQ 10 -minQ 20 -GL 2 -doGLF 2 \
 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
 -doIBS 1 -doCounts 1 -doCov 1 -makeMatrix 1 -minMaf 0.05 \
--out outputs/800/24-ibs-75 > outputs/800/24-ibs.stdout 2> outputs/800/24-ibs.stderr &
+-out outputs/800/23-ibs-75 > outputs/800/23-ibs.stdout 2> outputs/800/23-ibs.stderr &
 ``` 
 
-284622
+284622 with 24 inds
+281293 with 23 inds   
 
 ```{r}
-m <- as.matrix(read.table("outputs/800/24-ibs-75.covMat"))
+m <- as.matrix(read.table("outputs/800/23-ibs-75.covMat"))
 meta<-r4
 eig <- eigen(m)
 var<-eig$values/sum(eig$values)
@@ -372,14 +376,73 @@ ggsave("outputs/800/sac-24-klams-pcs.jpeg", width=10, height=5)
 
 ```{sh, eval=FALSE}
 srun -p high -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
--bam bamlists/sacs24.bamlist \
--out /home/maccamp/wall-canyon/outputs/800/plink24 \
+-bam bamlists/sacs23.bamlist \
+-out /home/maccamp/wall-canyon/outputs/800/plink23 \
 -anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 23 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/800/std.out 2>outputs/800/std.err &
 ```
 
 148631 sites with 17/24
+31346 with 23/24
+18433 with 23/23
+
+
+```{sh, eval=FALSE}
+plink --tped plink23.tped --tfam plink23.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples ../../bamlists/sacs23.names -o recode.prune.reheadered.vcf recode.prune.vcf
+
+```
+
+min4 has 1576 sites, 399 after iqtree considers the variant ones. Doesn't resolve the branching among Klamath+Modoc
+
+
+```{sh, eval=FALSE}
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.phy  > filtered-min4.phy
+seqConverter.pl -drecode.prune.reheadered.min4.phy -on
+
+#Corrected for ascertainment bias
+conda activate py3; ~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy; conda deactivate
+
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+
+#Now remove missing?? 
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
+seqConverter.pl -dfiltered.phy -on
+```
+
+399 sites left after all that! adjusted to 3362 by pruning -l .9 instead of .25  
+8618 after conversion to phylip, 3362 considered variable by iqtree   
+```{sh, eval=FALSE}
+iqtree -s filtered.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo -T AUTO
+iqtree -s  recode.prune.reheadered.min4.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo -T AUTO
+iqtree -s  recode.prune.reheadered.min4.phy.varsites.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo -T AUTO
+```
+
+```{r}
+t<-read.tree("outputs/800/recode.prune.reheadered.min4.phy.varsites.phy.contree")
+t<-midpoint.root(t)
+u<-as.polytomy(t, feature='node.label', fun=function(x) as.numeric(x) < 75)
+
+v<-ggtree(u) %<+% r4 
+
+v+
+  geom_tiplab(aes(label=paste0(`Species Common Name`, " ", Coordinates)), offset=0.01) +
+  geom_tippoint(aes(fill=Coordinates), pch=21, cex=3) +
+  geom_label_repel(data=v$data %>%filter(isTip==FALSE), aes(x=x, y=y, label=label),
+                   alpha=0.75) +
+  scale_fill_viridis_d() +
+  geom_treescale() +
+  theme(legend.position="") +
+  xlim(0,0.3)
+
+ggsave("outputs/800/sac-phylogeny.pdf", width = 8, height=6)
+```
+
 ## NGSDist version
 
 ```{sh, eval=FALSE}
@@ -421,4 +484,75 @@ srun -p high --nodes=1 -t 01:00:00 fastme -D 1 -i outputs/800/phylo.dist -o outp
 
 Blargh
 
-Get higher counts nad work with that.
+##
+```{r}
+library(pegas)
+```
+
+
+```{r}
+nex<-read.nexus.data("outputs/800/recode.prune.reheadered.min4.nex")
+write.nexus.data(nex, file="outputs/800/nex-recode.nex")
+```
+```{r}
+Naso<-read.dna(file="~/Dropbox/ucdavis/suckers/occidentalis/irbp-for-network.fasta", format="fasta")
+Naso
+NasoHaps <- haplotype(Naso)
+NasoHaps
+NasoNet <- haploNet(NasoHaps)
+plot(NasoNet, size=attr(NasoNet,"freq"), fast=FALSE)
+```
+
+
+```{r}
+ind.hap<-with(
+  utils::stack(setNames(attr(NasoHaps, "index"), rownames(NasoHaps))),
+  table(hap=ind, individuals=rownames(Naso)[values])
+ )
+ind.hap
+```
+
+```{r}
+pdf("outputs/800/irb-network.pdf", width = 10, height=8)
+plot(NasoNet, size=attr(NasoNet, "freq"), scale.ratio = .5, cex = 6, pie=ind.hap, labels = FALSE,
+     bg=viridis(7, option="H"))
+legend("bottomleft", c("C. fumeiventris", "C. microps","C. occidentalis",
+                       "C. rimiculus", "C. snyderi","Ch. brevirostris","D. luxatus"), 
+       text.col=viridis(7, option="H"))
+dev.off()
+```
+
+  2 >Catostomus.fumeiventris
+   2 >Catostomus.microps
+   5 >Catostomus.occidentalis
+   2 >Catostomus.rimiculus
+   2 >Catostomus.snyderi
+   3 >Chasmistes.brevirostris
+   2 >Deltistes.luxatus
+   
+   
+## Trying D suite
+https://github.com/millanek/tutorials/tree/master/analysis_of_introgression_with_snp_data   
+
+```{sh, eval=FALSE}
+git clone https://github.com/millanek/Dsuite.git
+cd Dsuite
+make
+```
+
+Making a sets file....
+Making a speciestree...
+Making a plot order file
+
+Dsuite Dtrios -c -n sactest -t species_sets.tre recode.prune.reheadered.vcf species_sets.txt 
+
+Runs....  
+
+ruby plot_d.rb species_sets_sactest_BBAA.txt plot_order.txt 0.7 species_sets_sactest_BBAA_D.svg
+ruby plot_f4ratio.rb species_sets_sactest_BBAA.txt plot_order.txt 0.2 species_sets_sactest_BBAA_f4ratio.svg
+
+
+FBRANCH
+
+~/github/Dsuite/Build/Dsuite Fbranch species_sets.tre species_sets_sactest_tree.txt > species_sets_sactest_Fbranch.txt
+python3 /Users/mac/github/Dsuite/utils/dtools.py species_sets_sactest_Fbranch.txt species_sets.tre
