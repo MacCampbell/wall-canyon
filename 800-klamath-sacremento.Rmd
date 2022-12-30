@@ -314,7 +314,28 @@ r4<-r3 %>% group_by(`Species Common Name`, Coordinates) %>% top_n(4,Counts) %>%
   filter(Counts > 1.5e5)
 
 write_tsv(r4 %>% select(NewPath), col_names = FALSE, file="bamlists/sacs24.bamlist")
-write_tsv(r4 %>% select(`Sample ID`), col_names = FALSE, file="bamlists/sacs24.bamlist")
+write_tsv(r4 %>% select(`Sample ID`), col_names = FALSE, file="bamlists/sacs24.names")
+```
+
+
+```{sh, eval=FALSE}
+srun -p med -t 2:00:00 --mem=32G --nodes=1 $HOME/angsd/angsd -P 36  \
+-bam bamlists/sacs34.bamlist \
+-ref /$HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-minInd 18 -minMapQ 10 -minQ 20 -GL 2 -doGLF 2 \
+-doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
+-doIBS 1 -doCounts 1 -doCov 1 -makeMatrix 1 -minMaf 0.05 \
+-out outputs/800/24-ibs-75 > outputs/800/24-ibs.stdout 2> outputs/800/24-ibs.stderr &
+``` 
+
+
+```{sh, eval=FALSE}
+srun -p high -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
+-bam bamlists/sacs24.bamlist \
+-out /home/maccamp/wall-canyon/outputs/800/plink24 \
+-anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-minInd 17 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
+-doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/800/std.out 2>outputs/800/std.err &
 ```
 
 ## NGSDist version
