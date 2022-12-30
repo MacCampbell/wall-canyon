@@ -135,6 +135,8 @@ r2<-select(r1,`Sample ID`, `Species Common Name`, Counts, Location, Coordinates,
   bind_rows(myfish) 
 
 write_tsv(r2 %>% select(NewPath), col_names = FALSE, file="bamlists/sacs41.bamlist")
+write_tsv(r2 %>% select(`Sample ID`), col_names = FALSE, file="bamlists/sacs41.names")
+
 ```
 
 ```{sh, eval=FALSE}
@@ -304,3 +306,56 @@ seqConverter.pl -dfiltered.phy -on
 iqtree -s filtered-min4.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo
 iqtree -s filtered-min4.phy.varsites.phy -st DNA -m GTR+F+ASC -bb 1000 -alrt 1000 -redo -T AUTO
 ```
+
+Getting rid of low counts. 
+
+```{r}
+r4<-r3 %>% group_by(`Species Common Name`, Coordinates) %>% top_n(4,Counts) %>%
+  filter(Counts > 1.5e5)
+
+write_tsv(r4 %>% select(NewPath), col_names = FALSE, file="bamlists/sacs24.bamlist")
+write_tsv(r4 %>% select(`Sample ID`), col_names = FALSE, file="bamlists/sacs24.bamlist")
+```
+
+## NGSDist version
+
+```{sh, eval=FALSE}
+NSITES=`zcat outputs/800/43-ibs-75.mafs.gz| tail -n+2 | wc -l`
+echo $NSITES
+
+#Pop label example (I already have lables in meta/phylo-sample-names.txt)
+#Rscript -e 'cat(paste(rep(c("LWK","TSI","PEL"),each=10), rep(1:10, 3), sep="_"), sep="\n", file="outputs/104/pops.label")'
+#cat outputs/104/pops.label
+
+module load ngsTools/07-2019
+
+srun -p high --nodes=1 -t 01:00:00 ngsDist -verbose 1 -geno outputs/800/43-ibs-75.beagle.gz -probs -n_ind 43 -n_sites $NSITES -labels bamlists/sacs43.names -o outputs/800/phylo.dist -n_threads 4 
+less -S outputs/800/phylo.dist
+
+module load fastme/2.1.5     
+
+srun -p high --nodes=1 -t 01:00:00 fastme -D 1 -i outputs/800/phylo.dist -o outputs/800/phylo.tree -m b -n b
+```
+
+```{sh,eval=FALSE}
+NSITES=`zcat outputs/800/41-ibs-75.mafs.gz| tail -n+2 | wc -l`
+echo $NSITES
+
+#Pop label example (I already have lables in meta/phylo-sample-names.txt)
+#Rscript -e 'cat(paste(rep(c("LWK","TSI","PEL"),each=10), rep(1:10, 3), sep="_"), sep="\n", file="outputs/104/pops.label")'
+#cat outputs/104/pops.label
+
+module load ngsTools/07-2019
+
+srun -p high --nodes=1 -t 01:00:00 ngsDist -verbose 1 -geno outputs/800/41-ibs-75.beagle.gz -probs -n_ind 41 -n_sites $NSITES -labels bamlists/sacs41.names -o outputs/800/phylo.dist -n_threads 4 
+less -S outputs/800/phylo.dist
+
+module load fastme/2.1.5     
+
+srun -p high --nodes=1 -t 01:00:00 fastme -D 1 -i outputs/800/phylo.dist -o outputs/800/phylo.tree -m b -n b
+```
+
+
+Blargh
+
+Get higher counts nad work with that.
