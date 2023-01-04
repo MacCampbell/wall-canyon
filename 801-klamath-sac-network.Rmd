@@ -10,6 +10,25 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```
 
 
+```{r}
+library(tidyverse)
+library(ggtree)
+library(tanggle)
+library(ape)
+```
+
+
+##Calling genos
+
+```{sh, eval=FALSE}
+srun -p high -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
+-bam bamlists/sacs27.bamlist \
+-out /home/maccamp/wall-canyon/outputs/801/plink \
+-anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
+-minInd 26 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
+-doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/801/std.out 2>outputs/801/std.err &
+```
+
 ```{r, warning=FALSE, message=FALSE}
 source("~/github/SNPs2CF/functions.R")
 ```
@@ -39,6 +58,13 @@ ciout <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
 ```
 
 
-Trying on cluster. 
-module load julia
+Trying on cluster using 801-network.slurm with sbatch 801-network.slurm
+
+Starting tree is read in oddly.   
+
+
+```{r}
+net1<-read.tree("outputs/801/bestnet-h3.tre")
+ggevonet(as.evonet(net1)) + geom_tiplab() + xlim(0,10) 
+```
 
