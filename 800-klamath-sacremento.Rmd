@@ -206,6 +206,12 @@ my2<-read_csv("meta/phylo119.csv") %>% filter(`Species Common Name` %in% c("Owen
   mutate(Coordinates="Owens Valley") %>% select(`Sample ID`, `Species Common Name`,Counts,Location,Coordinates, NewPath ) %>% group_by(`Species Common Name`) %>%
   top_n(2,Counts) 
 
+my27<-read_csv("meta/phylo119.csv") %>% filter(`Species Common Name` %in% c("Owens Sucker", "Wall Canyon Sucker", "Warner Sucker")) %>%
+  mutate(Coordinates="Owens Valley") %>% select(`Sample ID`, `Species Common Name`,Counts,Location,Coordinates, NewPath ) %>% group_by(`Species Common Name`) %>%
+  top_n(2,Counts) 
+r27<-bind_rows(r2,my27)
+write_csv(r27, file="meta/sacs27.csv")
+
 r3<-bind_rows(r2,my2)
 r3
 

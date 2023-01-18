@@ -21,13 +21,66 @@ library(ape)
 ##Calling genos
 
 ```{sh, eval=FALSE}
-srun -p high -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
+srun -p med -t 4:00:00 --mem=16G --nodes=1 angsd -P 24 \
 -bam bamlists/sacs27.bamlist \
 -out /home/maccamp/wall-canyon/outputs/801/plink \
 -anc $HOME/genomes/xyrauchen/Xyrauchen_texanus.faa \
 -minInd 26 -minMaf 0.05  -minMapQ 10 -minQ 20 -GL 1 -doMajorMinor 1 -doMaf 1 -SNP_pval 1e-3 \
 -doGeno 4 -doPost 1 -postCutoff 0.95 -doPlink 2 >outputs/801/std.out 2>outputs/801/std.err &
 ```
+
+45054 sites with 26/27 inds
+
+```{sh, eval=FALSE}
+plink --tped plink.tped --tfam plink.tfam  --out binary --recode --allow-extra-chr --noweb
+plink --ped binary.ped --map binary.map --recode vcf --allow-extra-chr -out recode
+bcftools +prune -l 0.9 -w 10000 recode.vcf  -Ov -o recode.prune.vcf
+bcftools reheader --samples ../../bamlists/sacs27.names -o recode.prune.reheadered.vcf recode.prune.vcf
+
+source activate py2; ~/github/mccloud-rrt/vcf2phylip.py -i recode.prune.reheadered.vcf; conda deactivate;
+
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.phy  > filtered-min4.phy
+seqConverter.pl -drecode.prune.reheadered.min4.phy -on
+
+#Corrected for ascertainment bias
+conda activate py3; ~/github/mccloud-rrt/103-remove-invariant.py -p recode.prune.reheadered.min4.phy -o recode.prune.reheadered.min4.asc.phy; conda deactivate
+
+seqConverter.pl -drecode.prune.reheadered.min4.asc.phy -on
+
+#Now remove missing?? 
+ ~/github/relict-dace/201.1-removeMissing.pl recode.prune.reheadered.min4.asc.phy  > filtered.phy
+seqConverter.pl -dfiltered.phy -on
+```
+
+     
+```{r}
+b27<-read_tsv("bamlists/sacs27.names", col_names = c("Sample ID"))
+meta27<-read_csv("meta/sacs27.csv")  %>% filter(`Sample ID` %in% b27$`Sample ID`)
+meta27
+```
+
+17166   
+
+```{r}
+t<-read.tree("outputs/801/recode.prune.reheadered.min4.phy.varsites.phy.contree")
+t<-midpoint.root(t)
+u<-as.polytomy(t, feature='node.label', fun=function(x) as.numeric(x) < 75)
+
+v<-ggtree(u) %<+% meta27
+
+v+
+  geom_tiplab(aes(label=paste0(`Species Common Name`, " ", Coordinates)), offset=0.01) +
+  geom_tippoint(aes(fill=Coordinates), pch=21, cex=3) +
+  geom_label_repel(data=v$data %>%filter(isTip==FALSE), aes(x=x, y=y, label=label),
+                   alpha=0.75) +
+  scale_fill_viridis_d() +
+  geom_treescale() +
+  theme(legend.position="") +
+  xlim(0,0.3)
+
+ggsave("outputs/801/sac-phylogeny.pdf", width = 8, height=6)
+```
+6457 sites in 	recode.prune.reheadered.min4.phy.varsites.phy
 
 ```{r, warning=FALSE, message=FALSE}
 source("~/github/SNPs2CF/functions.R")
@@ -36,7 +89,7 @@ source("~/github/SNPs2CF/functions.R")
 
 
 ```{r, warning=FALSE, message=FALE, eval=FALSE}
-output <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
+output <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy.varsites.phy",
                   ImapName="outputs/801/imap.txt", between.sp.only = TRUE, #max.SNPs = 1000,
                   n.quartets = 3,
                   bootstrap=FALSE, outputName="outputs/801/network-nq3-btsp.csv",
@@ -49,7 +102,7 @@ output <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
 To bootstrap I need to put together CF's with CIs
 
 ```{r, warning=FALSE, message=FALE, eval=FALSE}
-ciout <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy",
+ciout <- SNPs2CF(seqMatrix="outputs/801/recode.prune.reheadered.min4.phy.varsites.phy",
                   ImapName="outputs/801/imap.txt", between.sp.only = TRUE, max.SNPs = NULL,
                   n.quartets = 3, bootstrap=TRUE, boots.rep=1000,
                   outputName="outputs/801/network-nq3-btsp-CI.csv",

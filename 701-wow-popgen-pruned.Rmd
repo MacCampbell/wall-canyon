@@ -257,3 +257,84 @@ ggarrange(piplot + ggtitle("A") + theme(plot.title = element_text(size=18, face=
           tplot  + ggtitle("B") + theme(plot.title = element_text(size=18, face="bold")))
 ggsave("outputs/701/plot.pdf", width=8.5, height = 4)
 ```
+
+
+Test if PI are different? there are quite a few options
+
+```{r}
+A=pidf %>% filter(subfacet=="A")
+B=pidf %>% filter(subfacet=="B")
+C=pidf %>% filter(subfacet=="C")
+```
+
+Are our data normally distributed?    
+
+```{r}
+A
+```
+
+
+```{r}
+tab<-wilcox.test(A$pi, B$pi)
+```
+
+```{r}
+tab
+```
+
+Get all options:
+
+```{r}
+mydf<-data.frame()
+for(i in seq(1:15)) {
+
+#print (i);
+vector<-comb[,i]
+a<-vector[1]
+b<-vector[2]
+
+v1<-pidf %>% filter(subfacet==vector[1])
+v2<-pidf %>% filter(subfacet==vector[2])
+
+PiA<-mean(v1$pi)
+PiB<-mean(v2$pi)
+
+
+test1<-wilcox.test(v1$pi, v2$pi)
+p.valuePi<-test1$p.value
+Species1<-unique(v1$Species)
+Species2<-unique(v2$Species)
+
+#t
+v1<-tddf %>% filter(subfacet==vector[1])
+v2<-tddf %>% filter(subfacet==vector[2])
+test2<-wilcox.test(v1$D, v2$D)
+p.valueD<-test2$p.value
+
+DA<-mean(v1$D)
+DB<-mean(v2$D)
+
+row<-cbind(a,b,Species1, Species2, PiA, PiB, p.valuePi, DA, DB, p.valueD) %>% as_tibble()
+#row<-cbind(a,b,Species1, Species2, p.valuePi, p.valueD) %>% as_tibble()
+
+mydf<-bind_rows(mydf, row)
+}
+```
+
+c("Wall Canyon", "Honey Creek","Twentymile Creek","Deep Creek", "Lower Hot Creek", "Lower Rock Creek")
+```{r}
+df<-mydf %>% mutate(Group1=ifelse(a=="A", "Wall Canyon", 
+                       ifelse(a=="B", "Honey Creek",
+                       ifelse(a=="C", "Twentymile Creek",
+                       ifelse(a=="D", "Deep Creek",
+                       ifelse(a=="E", "Lower Hot Creek",
+                       ifelse(a=="F", "Lower Rock Creek",a)))))))
+df<-df %>% mutate(Group2=ifelse(b=="A", "Wall Canyon", 
+                       ifelse(b=="B", "Honey Creek",
+                       ifelse(b=="C", "Twentymile Creek",
+                       ifelse(b=="D", "Deep Creek",
+                       ifelse(b=="E", "Lower Hot Creek",
+                       ifelse(b=="F", "Lower Rock Creek",b)))))))
+
+write_csv(df,"outputs/701/pi-comparisons.csv")
+```

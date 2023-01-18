@@ -48,8 +48,8 @@ counts$Counts<-as.numeric(counts$Counts)
 #in bash
 #cut -f 1 -d ' ' counts-sort.txt  > counts-sort-numbers.txt
 countssort<-read_tsv("outputs/200/counts-sort-numbers.txt", col_names="CountsSort")
-
-comb<-bind_cols(files, counts, countssort)
+countsalign<-read_tsv("outputs/200/counts-sort-align.txt", col_names="CountAlign")
+comb<-bind_cols(files, counts, countssort, countsalign)
 comb
 ```
 

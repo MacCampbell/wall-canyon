@@ -142,7 +142,7 @@ keepers<-wowsers %>% filter(Counts>4e5)
 
 ```{r}
 myfish<-bind_rows(og,tahoes,sacs,modocs,klams,keepers)
-
+write_tsv(myfish,"outputs/802/myfish.tsv")
 myfish %>% group_by(`Species Common Name`) %>% summarize(Count=n())
 ```
 

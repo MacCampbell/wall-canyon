@@ -1,0 +1,48 @@
+Sample ID,Species Common Name,Counts,Location,Coordinates,NewPath
+934-002,Sacremento Sucker,148173,"Upper Pit, CA & OR",Ash Creek: Ash Valley,data/mapped/934-002_RA.sort.flt.bam
+934-003,Sacremento Sucker,295844,"Upper Pit, CA & OR",Ash Creek: Ash Valley,data/mapped/934-003_RA.sort.flt.bam
+934-005,Sacremento Sucker,58194,"Upper Pit, CA & OR",Ash Creek: Ash Valley,data/mapped/934-005_RA.sort.flt.bam
+934-009,Sacremento Sucker,90874,"Upper Pit, CA & OR",Ash Creek: Ash Valley,data/mapped/934-009_RA.sort.flt.bam
+934-011,Sacremento Sucker,92107,"Upper Pit, CA & OR",Ash Creek: Ash Valley,data/mapped/934-011_RA.sort.flt.bam
+1208-008,Sacremento Sucker,156708,"Upper Pit, CA & OR",Goose Lake: Dent,data/mapped/1208-008_RA.sort.flt.bam
+1208-009,Modoc Sucker,65239,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-009_RA.sort.flt.bam
+1208-010,Modoc Sucker,534900,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-010_RA.sort.flt.bam
+1208-011,Modoc Sucker,1080857,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-011_RA.sort.flt.bam
+1208-013,Modoc Sucker,110939,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-013_RA.sort.flt.bam
+1208-014,Modoc Sucker,207074,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-014_RA.sort.flt.bam
+1208-015,Modoc Sucker,228642,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-015_RA.sort.flt.bam
+1208-016,Modoc Sucker,494452,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-016_RA.sort.flt.bam
+1208-017,Modoc Sucker,61203,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-017_RA.sort.flt.bam
+1208-058,Modoc Sucker,1271946,"Upper Pit, CA & OR",Turner Creek: Garden Gulch,data/mapped/1208-058_RA.sort.flt.bam
+1208-059,Modoc Sucker,807413,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-059_RA.sort.flt.bam
+1208-060,Modoc Sucker,50976,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-060_RA.sort.flt.bam
+1208-062,Modoc Sucker,142595,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-062_RA.sort.flt.bam
+1208-063,Modoc Sucker,452038,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-063_RA.sort.flt.bam
+1208-064,Modoc Sucker,537133,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-064_RA.sort.flt.bam
+1208-065,Modoc Sucker,433263,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-065_RA.sort.flt.bam
+1208-066,Modoc Sucker,158673,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-066_RA.sort.flt.bam
+1208-067,Modoc Sucker,260164,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1208-067_RA.sort.flt.bam
+1272-011,Modoc Sucker,159043,"Upper Pit, CA & OR",Ash Creek: Johnson,data/mapped/1272-011_RA.sort.flt.bam
+1272-012,Sacremento Sucker,1226706,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-012_RA.sort.flt.bam
+1272-013,Sacremento Sucker,797254,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-013_RA.sort.flt.bam
+1272-014,Sacremento Sucker,182043,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-014_RA.sort.flt.bam
+1272-015,Sacremento Sucker,635010,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-015_RA.sort.flt.bam
+1272-016,Sacremento Sucker,523760,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-016_RA.sort.flt.bam
+1272-017,Sacremento Sucker,1247123,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-017_RA.sort.flt.bam
+1272-018,Sacremento Sucker,327327,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-018_RA.sort.flt.bam
+1272-019,Sacremento Sucker,161154,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-019_RA.sort.flt.bam
+1272-020,Sacremento Sucker,891815,"Upper Pit, CA & OR",Cottonwood,data/mapped/1272-020_RA.sort.flt.bam
+KLS_3228-047,Klamath Largescale Sucker,2023262,"Klamath basin, OR",Klamath Basin,data/reduced/KLS_3228-047_RA.reduced.bam
+KLS_2897-059,Klamath Largescale Sucker,1959341,"Klamath basin, OR",Klamath Basin,data/reduced/KLS_2897-059_RA.reduced.bam
+KSS_3734-008,Klamath Smallscale Sucker,2335767,"Klamath basin, OR",Klamath Basin,data/reduced/KSS_3734-008_RA.reduced.bam
+KSS_3734-002,Klamath Smallscale Sucker,2148051,"Klamath basin, OR",Klamath Basin,data/reduced/KSS_3734-002_RA.reduced.bam
+LRS_2735-077,Lost River Sucker,3821816,"Klamath basin, OR",Klamath Basin,data/reduced/LRS_2735-077_RA.reduced.bam
+LRS_2728-012,Lost River Sucker,3639466,"Klamath basin, OR",Klamath Basin,data/reduced/LRS_2728-012_RA.reduced.bam
+SNS_2894-073,Shortnose Sucker,2447681,"Klamath basin, OR",Klamath Basin,data/reduced/SNS_2894-073_RA.reduced.bam
+SNS_2801-025,Shortnose Sucker,1754011,"Klamath basin, OR",Klamath Basin,data/reduced/SNS_2801-025_RA.reduced.bam
+OSKR_44,Owens Sucker,4355885,"Lower Horton Creek, Bishop,CA",Owens Valley,data/reduced/OSKR_44_RA.reduced.bam
+OSKR_15,Owens Sucker,4211365,"Lower Rock Creek, Bishop, CA",Owens Valley,data/reduced/OSKR_15_RA.reduced.bam
+WCS_17,Wall Canyon Sucker,2556878,"Wall Canyon, NV",Owens Valley,data/reduced/WCS_17_RA.reduced.bam
+WCS_12,Wall Canyon Sucker,2500359,"Wall Canyon, NV",Owens Valley,data/reduced/WCS_12_RA.reduced.bam
+WS_HC5,Warner Sucker,1589918,"Honey Creek, OR",Owens Valley,data/reduced/WS_HC5_RA.reduced.bam
+WS_HC8,Warner Sucker,1422084,"Honey Creek, OR",Owens Valley,data/mapped/WS_HC8_RA.sort.flt.bam
