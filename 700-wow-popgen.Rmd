@@ -23,7 +23,6 @@ library(ape)
 library(phangorn)
 library(ggrepel)
 library(vcfR)
-library(hierfstat)
 ```
 
 ## Looking at basic analyses of WOW
@@ -129,6 +128,23 @@ cumvar<-cumsum(eig$values)/sum(eig$values)
 
 head(var)
 head(cumvar)
+
+```
+
+
+```{r}
+scree<-as_tibble(eig$values) %>% rename(Eigenvalues=value) %>% mutate(`Component Number`=1:n())
+
+ggplot(scree, aes(x=`Component Number`, y=Eigenvalues)) +
+  geom_line()  +
+  geom_point(pch=21, fill="white", cex=2) +
+  xlim(1,15) +
+  theme_bw() +
+  theme(panel.grid = element_blank()) +
+  theme(axis.text = element_text(size=12)) +
+  theme(axis.title = element_text(size=16))
+
+ggsave("outputs/700/scree-plot.pdf", width=4, height=4)
 ```
 
 
