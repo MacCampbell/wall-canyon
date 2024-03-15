@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 
 ```{r}
 library(tidyverse)
+library(treeio)
 library(ggtree)
 library(ape)
 library(viridis)
@@ -74,28 +75,102 @@ Exporting newick string with FigTree gets me a properly formatted starting tree 
 --mail-type=ALL --mail-user
 srun -p high -t 1-12:00:00 --nodes=1 /usr/bin/mb mb-pant-40m-1run.nex (118 hrs)
 
-and four runs together for comparison (518hrs?)
+## I revisited this
 
-### Results
+The tree can be made into a starting tree, under mcmc block:
+	startvals Tau=mystarttree; [using starting tree, making sure is specified]
 
-A single 40M run has sufficient ess. Putting treefiles in outputs/502/summary
+Running on chinook, /Users/mac/Dropbox/ucdavis/suckers/great-basin-suckers-manuscript/tree-search
+40 M gens, 3 chains. Trying this out.
 
-Need to be named like so: 
-temp.t.run1.p      
-temp.t.run1.t    
-temp.t.run2.p    
-temp.t.run2.t   
-temp.t.run3.p   
-temp.t.run3.t   
+This sets a starting tree, not a fixed analysis. Have redone this see tree files in suckers/great-basin-sucker-manuscript/tree-search/run-4
 
-sumt relburnin=yes burninfrac=0.10  nruns=3 contype=allcompat outputname=allcompat;
+```{r}
+tt<-read.beast("~/Dropbox/ucdavis/suckers/great-basin-suckers-manuscript/tree-search/run-4/start-30m.con.tre")
 
-see temp.t, can execute like "mb temp.t"
+t3<-ggtree(tt)
 
-These four runs failed to converge!!! 
+t3 + geom_nodelab(aes(label=node)) + geom_tiplab() +
+  xlim(0,70)
+```
 
-### Fixing topology 
 
-In run1 screen:
 
-srun -p high -t 6-12:00:00 --nodes=1 /usr/bin/mb mb-pant-fixedtopo-40m.nex
+```{r}
+up2<-t3 %<+% tips +
+  theme_tree2()+
+  geom_vline(xintercept=c(3,13,23,33,43), lty=2, lwd=0.5, alpha=0.5) +
+  geom_range(range='age_0.95HPD', color='red', alpha=.6, size=2) +
+  geom_tiplab(size=3.5, offset=3, aes(label=Name)) +
+  geom_tippoint(aes(x=x+.25, fill=`Great Basin`, shape=`Major Basin`), cex=2.5) +
+  scale_x_continuous(name="\nTime in Millions of Years Ago", breaks=c(3,13,23,33,43,53), 
+                     labels=c(50,40,30,20,10,0),
+                     limits=c(0,85))  +
+#  geom_label_repel(data=nodes,aes(x=x,y=y,label=age), alpha=0.75) +
+  theme(axis.text.x = element_text(size=14, face="bold")) +
+  theme(axis.title.x = element_text(size=14)) +
+  scale_fill_viridis_d() +
+ # geom_cladelab(node=90, "Tahoe Sucker\nand relatives", offset=15) +
+#  geom_cladelab(node=77, "Wall Canyon Sucker\nand relatives", offset=17) +
+#  geom_cladelab(node=71, "Mountain Sucker\nand relatives", offset=18) +
+  theme(legend.position = "top") +
+  scale_shape_manual(values=c(25,22,23,24,21))+
+  guides(fill = guide_legend(override.aes = list(shape=c(21,21), colour="black", 
+                                     fill=c(viridis(n=2)[1], viridis(n=2)[2])))) 
+
+up2
+ggsave("outputs/502/time-tree.pdf", width=8.5, height=11)
+```
+
+### Ancestral state reconstruction
+
+```{r}
+temp<-select(tips, label, `Great Basin`)
+
+target<-t3$data %>% filter(isTip==TRUE) %>% select(label)  
+
+#target<-target%>% dplyr::rename("Seq"="value")
+
+#Sort our data as in tip labels
+data<-left_join(target,temp)
+
+ERreconstruction<-ace(data$`Great Basin`,as.phylo(tt), type="discrete", method="ML", model="ER") #or ER
+save(ERreconstruction, file="outputs/502/ERreconstruction.rda")
+```
+
+```{r}
+states<-ERreconstruction$lik.anc %>% as_tibble()
+states$node<-rownames(ERreconstruction$lik.anc)
+```
+
+
+```{r}
+
+pies <- nodepie(states, cols=1:2, color=c(Yes=viridis(2)[2], No=viridis(2)[1]), alpha=1)
+up3<-inset(up2, pies, width=.08, height=.08)
+
+pdf("outputs/502/equal-rates-ancestral-reconstruction.pdf", width=8, height=11)
+up3
+dev.off()
+```
+
+```{r}
+ARDreconstruction<-ace(data$`Great Basin`,as.phylo(tt), type="discrete", model="ARD") 
+save(ARDreconstruction, file="outputs/502/ARDreconstruction.rda")
+```
+
+```{r}
+statesa<-ARDreconstruction$lik.anc %>% as_tibble()
+statesa$node<-rownames(ARDreconstruction$lik.anc)
+```
+
+
+```{r}
+
+piesa <- nodepie(statesa, cols=1:2, color=c(Yes=viridis(2)[2], No=viridis(2)[1]), alpha=1)
+up3a<-inset(up2, piesa, width=.08, height=.08)
+
+pdf("outputs/502/all-rates-different-ancestral-reconstruction.pdf", width=8, height=11)
+up3a
+dev.off()
+```
