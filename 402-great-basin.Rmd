@@ -153,6 +153,13 @@ save(rast.table, file="outputs/402/rast.table.rda")
 ```
 
 ```{r}
+save(sordf, file="spatial-data/sordf.rda")
+save(sgbdf, file="spatial-data/sbgdf.rda")
+save(cadf, file="spatial-data/cadf.rda")
+save(codf, file="spatial-data/codf.rda")
+```
+
+```{r}
 mapg<-ggplot() + 
   geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
   geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
