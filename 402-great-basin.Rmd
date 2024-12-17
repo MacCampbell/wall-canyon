@@ -19,11 +19,12 @@ library(gridExtra)
 library(grid)
 library(polyggon)
 library(ggrepel)
+library(ggsn)
 ```
 
 ## Get HUC4 or 6 level polygons of basins.
 https://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Hydrography/WBD/HU2/Shape/
-
+https://www.usgs.gov/national-hydrography/access-national-hydrography-products
 Need
 171200; 160*
 
@@ -79,13 +80,16 @@ ggplot() +
 __1__ Northwest Lakes
 ```{r}
 nwlakes<-sordf %>% mutate(MeanX=mean(long), MeanY=mean(lat), Label="Oregon Closed Basins") %>%
-  select(MeanX, MeanY, Label) %>% unique()
+  dplyr::select(MeanX, MeanY, Label) %>% unique()
 ```
 
 ```{r}
 ggplot() + 
   geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
-  geom_text_repel(data=nwlakes, aes(x=MeanX, y=MeanY, label=Label))
+  geom_text_repel(data=nwlakes, aes(x=MeanX, y=MeanY, label=Label)) +
+  scalebar(sordf, dist = 100, dist_unit = "km",
+             transform = TRUE, model = "WGS84") 
+
 ```
 
 
@@ -140,9 +144,9 @@ rast.table <- data.frame(xyFromCell(nat.crop, 1:ncell(nat.crop)),
                          getValues(nat.crop/255))
 
 
-rast.table$rgb <- with(rast.table, rgb(NE2_HR_LC_SR_W_DR.1,
-                                       NE2_HR_LC_SR_W_DR.2,
-                                       NE2_HR_LC_SR_W_DR.3,
+rast.table$rgb <- with(rast.table, rgb(NE2_HR_LC_SR_W_DR_1,
+                                       NE2_HR_LC_SR_W_DR_2,
+                                       NE2_HR_LC_SR_W_DR_3,
                                        1))
 
 save(rast.table, file="outputs/402/rast.table.rda")
@@ -160,7 +164,9 @@ mapg<-ggplot() +
   theme(panel.grid=element_blank()) +
   xlab("Longitude") +
   ylab("Latitude") +
-  theme(axis.title=element_text(size=14))
+  theme(axis.title=element_text(size=14)) +
+   scalebar(dist = 200, dist_unit = "km",
+             transform = TRUE, model = "WGS84", x.min=min(rast.table$x), x.max=max(rast.table$x), y.min=min(rast.table$y), y.max=max(rast.table$y), location = "bottomleft")
 
 mapg
 ```
@@ -177,7 +183,7 @@ pluvdf<-fortify(pluv)
 ```{r}
 mapp<-ggplot() + 
   geom_raster(data = rast.table, mapping = aes(x = x, y = y), fill = rast.table$rgb, interpolate = TRUE)  +
-  geom_holygon(data=pluvdf,aes(x=long, y=lat, group=group), fill="cornflowerblue", alpha=.75) +
+  geom_holygon(data=pluvdf,aes(x=long, y=lat, group=group), size=1, fill="cornflowerblue", alpha=.75) +
   geom_polygon(data=sordf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
   geom_polygon(data=sgbdf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
   geom_polygon(data=cadf,aes(x=long, y=lat, group=group), fill="white", color="black", alpha=0) +
@@ -187,7 +193,9 @@ mapp<-ggplot() +
   theme(panel.grid=element_blank()) +
   xlab("Longitude") +
   ylab("Latitude") +
-  theme(axis.title=element_text(size=14))
+  theme(axis.title=element_text(size=14)) +
+     scalebar(dist = 200, dist_unit = "km",
+             transform = TRUE, model = "WGS84", x.min=min(rast.table$x), x.max=max(rast.table$x), y.min=min(rast.table$y), y.max=max(rast.table$y))
 
 
 mapp
